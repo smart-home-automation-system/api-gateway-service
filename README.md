@@ -1,5 +1,7 @@
 # api-gateway-service
 
+Gateway to other home-automation services. 
+
 [![CI](https://github.com/smart-home-automation-system/api-gateway-service/actions/workflows/CI.yml/badge.svg)](https://github.com/smart-home-automation-system/api-gateway-service/actions/workflows/CI.yml)
 ![GitHub Release Date - Published_At](https://img.shields.io/github/release-date/smart-home-automation-system/api-gateway-service?style=plastic)
 ![GitHub Release](https://img.shields.io/github/v/release/smart-home-automation-system/api-gateway-service?style=plastic)

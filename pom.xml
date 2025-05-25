@@ -36,7 +36,7 @@
 		<java.version>21</java.version>
 		<spring-cloud.version>2025.0.0-RC1</spring-cloud.version>
 		<!--  internal dependencies versions-->
-
+		<cholewa-commons.version>0.1.2</cholewa-commons.version>
 		<!--  plugins versions-->
 		<maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
 		<maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
@@ -56,6 +56,13 @@
 		</dependencies>
 	</dependencyManagement>
 	<dependencies>
+		<!--  internal dependencies versions-->
+		<dependency>
+			<groupId>cloud.cholewa</groupId>
+			<artifactId>cholewa-commons</artifactId>
+			<version>${cholewa-commons.version}</version>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
@@ -81,6 +88,14 @@
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
+		</repository>
+		<repository>
+			<id>github-prv</id>
+			<url>https://maven.pkg.github.com/magikabdul/*</url>
+		</repository>
+		<repository>
+			<id>github-org-smart-home</id>
+			<url>https://maven.pkg.github.com/smart-home-automation-system/*</url>
 		</repository>
 	</repositories>
 
