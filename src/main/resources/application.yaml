@@ -1,6 +1,16 @@
-spring.application.name: api-gateway-service
 spring:
+  application.name: api-gateway-service
+  profiles:
+    active: home
   webflux:
     base-path: /home
 server:
   port: 6100
+
+logbook:
+  format:
+    style: http
+
+logging:
+  level:
+    org.zalando.logbook: trace
