@@ -72,6 +72,12 @@
 			<groupId>org.zalando</groupId>
 			<artifactId>logbook-spring-boot-webflux-autoconfigure</artifactId>
 			<version>${logbook.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apiguardian</groupId>
+					<artifactId>apiguardian-api</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<dependency>
