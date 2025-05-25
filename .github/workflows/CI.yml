@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [feature/**]
+  pull_request:
+    branches: [main]
+    types: [ opened ]
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: maven-settings-xml-action
+        uses: whelk-io/maven-settings-xml-action@v21
+        with:
+          servers: >
+            [
+              {
+                "id": "github-prv",
+                "username": "${{secrets.GH_PRV_USERNAME}}",
+                "password": "${{secrets.GH_PRV_PASSWORD}}"
+              },
+              {
+                "id": "github-org-smart-home",
+                "username": "${{secrets.GH_PRV_USERNAME}}",
+                "password": "${{secrets.GH_PRV_PASSWORD}}"
+              }
+            ]
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+          overwrite-settings: false
+
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+
+      - name: Discord notification -> success
+        uses: sarisia/actions-status-discord@v1
+        if: ${{ success() }}
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ job.status }}
+          title: "CI ai-service - success"
+      - name: Discord notification -> non-success
+        uses: sarisia/actions-status-discord@v1
+        if: ${{ !success() }}
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ job.status }}
+          title: "CI ai-service - failure"
