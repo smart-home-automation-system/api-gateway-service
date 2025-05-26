@@ -1,1 +1,58 @@
-spring.application.name=api-gateway-service
+spring:
+  application.name: api-gateway-service
+  profiles:
+    active: home
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+  webflux:
+    base-path: /home
+
+server:
+  port: 6200
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://service-discovery:6000/eureka
+    fetch-registry: true
+    register-with-eureka: true
+
+internal:
+  service:
+    water-heating:
+      uri:
+        scheme: http
+        host: water-heating-service
+        port: 6200
+
+logbook:
+  format:
+    style: http
+
+logging:
+  level:
+    org.zalando.logbook: trace
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: local
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:6000/eureka
+
+internal:
+  service:
+    water-heating:
+      uri:
+        scheme: http
+        host: localhost
+        port: 6006
