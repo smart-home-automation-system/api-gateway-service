@@ -13,11 +13,11 @@ public class WaterRoutes {
             .route(r -> r
                 .method(HttpMethod.GET)
                 .and()
-                .path("/water/hot/status")
-                .uri(getUri(config) + "/hot/status"))
+                .path("/water/hot")
+                .uri(getUri(config) + "/home/water/hot"))
             .route(r -> r
-                .path("/water/cold/status")
-                .uri(getUri(config) + "/cold/status"))
+                .path("/water/management")
+                .uri(getUri(config) + "/home/water/management"))
             .build();
     }
 
