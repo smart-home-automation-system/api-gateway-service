@@ -2,11 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [feature/**]
-  pull_request:
-    branches: [main]
-    types: [ opened ]
+    branches: [main, 'feature/**']
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -14,27 +15,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: maven-settings-xml-action
-        uses: whelk-io/maven-settings-xml-action@v21
-        with:
-          servers: >
-            [
-              {
-                "id": "github-prv",
-                "username": "${{secrets.GH_PRV_USERNAME}}",
-                "password": "${{secrets.GH_PRV_PASSWORD}}"
-              },
-              {
-                "id": "github-org-smart-home",
-                "username": "${{secrets.GH_PRV_USERNAME}}",
-                "password": "${{secrets.GH_PRV_PASSWORD}}"
-              }
-            ]
+      - name: Configure Maven settings for GitHub Packages
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'XML'
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+            <servers>
+              <server>
+                <id>github-prv</id>
+                <username>${env.GH_PRV_USERNAME}</username>
+                <password>${env.GH_PRV_PASSWORD}</password>
+              </server>
+              <server>
+                <id>github-org-smart-home</id>
+                <username>${env.GH_PRV_USERNAME}</username>
+                <password>${env.GH_PRV_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          XML
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -42,17 +46,20 @@ jobs:
           overwrite-settings: false
 
       - name: Build with Maven
+        env:
+          GH_PRV_USERNAME: ${{ secrets.GH_PRV_USERNAME }}
+          GH_PRV_PASSWORD: ${{ secrets.GH_PRV_PASSWORD }}
         run: mvn -B package --file pom.xml
 
       - name: Discord notification -> success
-        uses: sarisia/actions-status-discord@v1
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
         if: ${{ success() }}
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: ${{ job.status }}
           title: "CI api-gateway-service - success"
       - name: Discord notification -> non-success
-        uses: sarisia/actions-status-discord@v1
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
         if: ${{ !success() }}
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
