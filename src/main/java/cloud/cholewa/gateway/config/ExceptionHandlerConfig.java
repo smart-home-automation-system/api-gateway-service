@@ -1,13 +1,15 @@
 package cloud.cholewa.gateway.config;
 
 import cloud.cholewa.commons.error.GlobalErrorExceptionHandler;
+import cloud.cholewa.gateway.error.UpstreamUnavailableProcessor;
 import org.springframework.boot.autoconfigure.web.WebProperties;
-import org.springframework.boot.web.reactive.error.ErrorAttributes;
+import org.springframework.boot.webflux.error.ErrorAttributes;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.codec.ServerCodecConfigurer;
 
+import java.net.ConnectException;
 import java.util.Map;
 
 @Configuration
@@ -24,9 +26,11 @@ public class ExceptionHandlerConfig {
             errorAttributes, webProperties.getResources(), applicationContext, serverCodecConfigurer
         );
 
-        globalErrorExceptionHandler.withCustomErrorProcessor(Map.ofEntries(
-
-        ));
+        globalErrorExceptionHandler.withCustomErrorProcessor(
+            Map.ofEntries(
+                Map.entry(ConnectException.class, new UpstreamUnavailableProcessor())
+            )
+        );
 
         return globalErrorExceptionHandler;
     }
