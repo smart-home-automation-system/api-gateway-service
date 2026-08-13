@@ -6,6 +6,19 @@ spring:
     active: home
   webflux:
     base-path: /home
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            # connecting to a k8s Service either succeeds at once or the target is gone;
+            # 30 s (the default) would just hold the caller. ConnectTimeoutException extends
+            # ConnectException, so it lands in UpstreamUnavailableProcessor as a clean 502
+            connect-timeout: 2000
+            # all external traffic funnels through this one replica, so a wedged upstream must
+            # not hold a request forever. Generous on purpose - the ai route overrides it,
+            # because an OpenAI answer legitimately takes longer than any other call here
+            response-timeout: 30s
   reactor:
     # default LIMITED restores ThreadLocals only in "tap" and "handle", so traceId would be
     # missing from the MDC of every log statement inside a reactive chain
@@ -31,13 +44,33 @@ management:
       # This service opens the trace every external request is then followed by
       probability: 1.0
 
+# k8s DNS names; every service listens on 6200 in the cluster
 internal:
   service:
+    ai:
+      scheme: http
+      host: ai-service
+      port: 6200
+    amx:
+      scheme: http
+      host: amx-service
+      port: 6200
+    boiler:
+      scheme: http
+      host: boiler-service
+      port: 6200
+    database:
+      scheme: http
+      host: database-service
+      port: 6200
+    heating:
+      scheme: http
+      host: heating-service
+      port: 6200
     water:
-      uri:
-        scheme: http
-        host: water-service
-        port: 6200
+      scheme: http
+      host: water-service
+      port: 6200
 
 logbook:
   format:
@@ -57,13 +90,27 @@ spring:
     activate:
       on-profile: local
 
+# locally every service keeps its own port from the org table
 internal:
   service:
+    ai:
+      host: localhost
+      port: 6004
+    amx:
+      host: localhost
+      port: 6001
+    boiler:
+      host: localhost
+      port: 6007
+    database:
+      host: localhost
+      port: 6005
+    heating:
+      host: localhost
+      port: 6002
     water:
-      uri:
-        scheme: http
-        host: localhost
-        port: 6006
+      host: localhost
+      port: 6006
 
 logbook:
   format:
