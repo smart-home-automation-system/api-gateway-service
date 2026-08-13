@@ -1,25 +1,35 @@
 spring:
-  application.name: api-gateway-service
+  application:
+    name: api-gateway-service
+    version: @project.version@
   profiles:
     active: home
-  cloud:
-    gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
   webflux:
     base-path: /home
+  reactor:
+    # default LIMITED restores ThreadLocals only in "tap" and "handle", so traceId would be
+    # missing from the MDC of every log statement inside a reactive chain
+    context-propagation: auto
 
 server:
   port: 6200
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://service-discovery:6000/eureka
-    fetch-registry: true
-    register-with-eureka: true
+management:
+  server:
+    port: 8200
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  tracing:
+    sampling:
+      # default 0.1; a home system generates so little traffic that sampling everything is free,
+      # and a partially sampled trace is useless when it is the only record of a request.
+      # This service opens the trace every external request is then followed by
+      probability: 1.0
 
 internal:
   service:
@@ -31,9 +41,12 @@ internal:
 
 logbook:
   format:
-    style: http
+    style: json
 
 logging:
+  structured:
+    format:
+      console: logstash
   level:
     org.zalando.logbook: trace
 
@@ -44,11 +57,6 @@ spring:
     activate:
       on-profile: local
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:6000/eureka
-
 internal:
   service:
     water:
@@ -56,3 +64,28 @@ internal:
         scheme: http
         host: localhost
         port: 6006
+
+logbook:
+  format:
+    style: http
+
+logging:
+  structured:
+    format:
+      console: ""
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: test
+
+logbook:
+  format:
+    style: http
+
+logging:
+  structured:
+    format:
+      console: ""

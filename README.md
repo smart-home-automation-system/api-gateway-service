@@ -1,8 +1,11 @@
 # api-gateway-service
 
-Gateway to other home-automation services. 
+Gateway to other home-automation services.
 
 [![CI](https://github.com/smart-home-automation-system/api-gateway-service/actions/workflows/CI.yml/badge.svg)](https://github.com/smart-home-automation-system/api-gateway-service/actions/workflows/CI.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=smart-home-automation-system_api-gateway-service&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=smart-home-automation-system_api-gateway-service)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=smart-home-automation-system_api-gateway-service&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=smart-home-automation-system_api-gateway-service)
+
 ![GitHub Release Date - Published_At](https://img.shields.io/github/release-date/smart-home-automation-system/api-gateway-service?style=plastic)
 ![GitHub Release](https://img.shields.io/github/v/release/smart-home-automation-system/api-gateway-service?style=plastic)
 
@@ -10,7 +13,9 @@ Gateway to other home-automation services.
 
 ![GitHub top language](https://img.shields.io/github/languages/top/smart-home-automation-system/api-gateway-service?style=plastic)
 ![Java](https://img.shields.io/badge/java-21-yellow?style=plastic)
-![SpringBoot](https://img.shields.io/badge/SpringBoot-3.5.0-blue?style=plastic)
+![SpringBoot](https://img.shields.io/badge/SpringBoot-4.1.0-blue?style=plastic)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=smart-home-automation-system_api-gateway-service&metric=coverage)](https://sonarcloud.io/summary/new_code?id=smart-home-automation-system_api-gateway-service)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=smart-home-automation-system_api-gateway-service&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=smart-home-automation-system_api-gateway-service)
 
 ![GitHub issues](https://img.shields.io/github/issues/smart-home-automation-system/api-gateway-service?style=plastic)
 ![GitHub contributors](https://img.shields.io/github/contributors/smart-home-automation-system/api-gateway-service?style=plastic)
@@ -18,3 +23,61 @@ Gateway to other home-automation services.
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/smart-home-automation-system/api-gateway-service?style=plastic)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/smart-home-automation-system/api-gateway-service?style=plastic)
+
+---
+
+# Description
+
+Spring Cloud Gateway sitting at the edge of the cluster: the k8s ingress hands it the external
+traffic under `/home` and it forwards to the internal services over k8s DNS. It is also where a
+request's trace starts, so one `traceId` follows it through every service it touches.
+
+Routing is **static** — service discovery was retired together with `service-discovery` (Eureka),
+and k8s DNS resolves the targets. Each route's host and port come from the `internal.service.*`
+configuration group.
+
+## Spring Cloud on Boot 4.1 — accepted risk
+
+No Spring Cloud release train targets Spring Boot 4.1 (2025.1.2, the newest, is built against
+Boot 4.0.7), so the BOM is not imported and `spring-cloud-starter-gateway-server-webflux` is
+pinned on its own (`spring-cloud-gateway.version`). The combination works because Boot 4.1.0 and
+4.0.7 sit on the same Spring Framework 7.0.x line, and it is verified on every change — but it is
+outside Spring's compatibility matrix, so **re-test the gateway after any bump** of either version.
+
+## Run locally
+
+```bash
+mvn verify                                  # build and tests
+mvn spring-boot:run -Dspring-boot.run.profiles=home,local
+```
+
+| | Application | Actuator |
+|---|---|---|
+| local (`local` profile) | 6200 | 8200 |
+| cluster (`home` profile) | 6200 | 8200 |
+
+The `local` profile points the routes at `localhost` instead of the k8s service names; the
+Actuator exposes `health`, `info` and `prometheus`.
+
+## Routes
+
+Base path `/home` (`spring.webflux.base-path`), so route predicates are written without it.
+
+| Path | Target | State |
+|---|---|---|
+| `/home/water/hot` (GET) | `water-service` | **dead** — the service exposes no such path |
+| `/home/water/management` | `water-service` | **dead** — the service exposes no such path |
+
+Both routes predate this migration and point at paths `water-service` never had: it serves
+`/home/water/status/active` and `/home/water/status/temperature` (its own README records the
+mismatch). Nothing regressed here — the discovery locator that was removed would not have covered
+them either — but until HAS-171 rewrites the routing, `water-service` stays unreachable from
+outside the cluster, and so do the services the ingress does not route directly.
+
+Anything not matched by a route returns 404; a route whose target is down returns 502 with a fixed
+message, deliberately without the internal host and port (see `UpstreamUnavailableProcessor`).
+
+One trap for whoever writes the new routes: the path part of a route's `uri(...)` is **discarded**
+— `RouteToRequestUrlFilter` merges only scheme, host and port onto the incoming request URI. The
+current routes appear to work only because the appended path equals the incoming one. Changing the
+target path needs a `rewritePath` / `setPath` filter, not a longer URI string.
