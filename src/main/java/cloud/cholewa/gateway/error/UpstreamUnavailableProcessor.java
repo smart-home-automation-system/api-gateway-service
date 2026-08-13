@@ -9,7 +9,10 @@ import org.springframework.http.HttpStatus;
 
 import java.util.Collections;
 
-//the gateway is the only service reachable from outside, so what it puts in "details" leaves the
+//mapped for IOException, not just ConnectException: a missing Service object surfaces as
+//UnknownHostException and a dropped connection as PrematureCloseException, both of which would
+//otherwise fall back to DefaultExceptionProcessor and answer 500 with the internal name inside.
+//The gateway is the only service reachable from outside, so what it puts in "details" leaves the
 //cluster - and since the cluster logs are JSON, it is stored and searchable as well. The default
 //processor would pass the connection error through verbatim, which names the internal host, pod IP
 //and port of the target; only the exception type is logged and the caller gets a fixed message

@@ -61,23 +61,30 @@ Actuator exposes `health`, `info` and `prometheus`.
 
 ## Routes
 
-Base path `/home` (`spring.webflux.base-path`), so route predicates are written without it.
+Route predicates are written **without** the `/home` prefix, but nothing is stripped at runtime:
+`PathRoutePredicateFactory` prepends `spring.webflux.base-path` to every pattern and matches it
+against the full request path. The target therefore receives the path unchanged — `RouteToRequestUrlFilter`
+merges only scheme, host and port onto the incoming URI. Every service is mounted under the same
+path externally as internally, so no rewrite is needed. A target whose path differs needs a
+`rewritePath` filter; a longer `uri(...)` string does nothing, its path part is discarded.
 
-| Path | Target | State |
+| Path | Target | Endpoints behind it |
 |---|---|---|
-| `/home/water/hot` (GET) | `water-service` | **dead** — the service exposes no such path |
-| `/home/water/management` | `water-service` | **dead** — the service exposes no such path |
+| `/home/ai` | `ai-service` | `POST /home/ai` (text/plain) |
+| `/home/amx` | `amx-service` | `POST /home/amx` |
+| `/home/boiler/**` | `boiler-service` | `GET /home/boiler/status` |
+| `/home/device/configuration/**` | `database-service` | `GET` and `POST /home/device/configuration/eaton` — the POST writes device configuration and is unauthenticated |
+| `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating`, `GET /home/heating/status/active` |
+| `/home/water/**` | `water-service` | `GET /home/water/status/{active,temperature}` |
 
-Both routes predate this migration and point at paths `water-service` never had: it serves
-`/home/water/status/active` and `/home/water/status/temperature` (its own README records the
-mismatch). Nothing regressed here — the discovery locator that was removed would not have covered
-them either — but until HAS-171 rewrites the routing, `water-service` stays unreachable from
-outside the cluster, and so do the services the ingress does not route directly.
+Hosts and ports come from the `internal.service.*` group: k8s DNS names on 6200 in the cluster,
+`localhost` with each service's own port locally.
 
-Anything not matched by a route returns 404; a route whose target is down returns 502 with a fixed
-message, deliberately without the internal host and port (see `UpstreamUnavailableProcessor`).
+`notification-service` is deliberately absent: its `/home/notification/skippy` endpoint has no
+external consumer and was never routed. Add a route the day something outside the cluster needs it.
 
-One trap for whoever writes the new routes: the path part of a route's `uri(...)` is **discarded**
-— `RouteToRequestUrlFilter` merges only scheme, host and port onto the incoming request URI. The
-current routes appear to work only because the appended path equals the incoming one. Changing the
-target path needs a `rewritePath` / `setPath` filter, not a longer URI string.
+Anything not matched returns 404; a route whose target is unreachable — refused, unresolvable or
+dropped mid-response — returns 502 with a fixed message, deliberately without the internal host and
+port (see `UpstreamUnavailableProcessor`). The HTTP client connects with a 2 s timeout and waits 30 s
+for a response; the `ai` route overrides that to 120 s, because an OpenAI answer legitimately takes
+longer than anything else here.

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 import java.net.ConnectException;
+import java.net.UnknownHostException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,5 +32,16 @@ class UpstreamUnavailableProcessorTest {
 
         assertThat(error.getMessage()).isEqualTo("Upstream service unavailable");
         assertThat(error.getDetails()).isNull();
+    }
+
+    //a missing Service object surfaces as UnknownHostException, which is not a ConnectException -
+    //the processor is registered for IOException so this lands here instead of on the default 500,
+    //which would have answered with "failed to resolve 'boiler-service'" as details
+    @Test
+    void should_handle_an_unresolvable_service_name() {
+        Errors errors = sut.apply(new UnknownHostException("failed to resolve 'boiler-service'"));
+
+        assertThat(errors.getHttpStatus()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(errors.getErrors().iterator().next().getDetails()).isNull();
     }
 }
