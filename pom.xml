@@ -63,6 +63,13 @@
 			<version>${cholewa-commons.version}</version>
 		</dependency>
 
+		<!-- declared, not inherited: the validation API arrives transitively through
+		     cholewa-commons today, but InternalServicesConfig depends on it directly -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
