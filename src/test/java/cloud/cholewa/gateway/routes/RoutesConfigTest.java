@@ -48,6 +48,9 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/water/status/temperature")).isEqualTo("water");
         assertThat(matchedRouteFor("/home/boiler/status")).isEqualTo("boiler");
         assertThat(matchedRouteFor("/home/device/configuration/eaton")).isEqualTo("database");
+        assertThat(matchedRouteFor("/home/household")).isEqualTo("database");
+        assertThat(matchedRouteFor("/home/household/member/Test/device")).isEqualTo("database");
+        assertThat(matchedRouteFor("/home/householdx")).isNull();
         assertThat(matchedRouteFor("/home/amx")).isEqualTo("amx");
         assertThat(matchedRouteFor("/home/ai")).isEqualTo("ai");
         assertThat(matchedRouteFor("/home/nothing")).isNull();

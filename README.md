@@ -74,6 +74,7 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/amx` | `amx-service` | `POST /home/amx` |
 | `/home/boiler/**` | `boiler-service` | `GET /home/boiler/status` |
 | `/home/device/configuration/**` | `database-service` | `GET` and `POST /home/device/configuration/eaton` — the POST writes device configuration and is unauthenticated |
+| `/home/household`, `/home/household/**` | `database-service` | the household registry: `GET /home/household` and the member/device CRUD under `/home/household/member/...` — unauthenticated like every route here, and it carries members' names, phone numbers and device MACs |
 | `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating`, `GET /home/heating/status/active` |
 | `/home/water/**` | `water-service` | `GET /home/water/status/{active,temperature}` |
 
