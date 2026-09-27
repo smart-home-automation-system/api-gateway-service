@@ -27,7 +27,9 @@ public class RoutesConfig {
                 .uri(uri(services.ai())))
             .route("amx", r -> r.path("/amx", "/amx/**").uri(uri(services.amx())))
             .route("boiler", r -> r.path("/boiler", "/boiler/**").uri(uri(services.boiler())))
-            .route("database", r -> r.path("/device/configuration/**").uri(uri(services.database())))
+            //the Eaton device configuration and the household registry - both live in database-service
+            .route("database", r -> r.path("/device/configuration/**", "/household", "/household/**")
+                .uri(uri(services.database())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
             .route("water", r -> r.path("/water", "/water/**").uri(uri(services.water())))
             .build();
