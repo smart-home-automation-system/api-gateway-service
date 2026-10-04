@@ -3,7 +3,7 @@
 `cloud.cholewa:api-gateway-service` — Spring Cloud Gateway at the edge of the cluster: the k8s
 ingress forwards all of `/home` here, and static routes fan out to the internal services over
 k8s DNS. It is the **only** way into the cluster from outside, and where every external request's
-trace starts. Reactive (WebFlux), Java 21, Spring Boot 4.1.0, Maven. Port **6200** (Actuator
+trace starts. Reactive (WebFlux), Java 21, Spring Boot 4.1.1, Maven. Port **6200** (Actuator
 **8200**) locally and in the cluster alike. Docker image `magikabdul/api-gateway-service`; the pom
 keeps `0.0.1-SNAPSHOT`, the released version comes from the git tag.
 
@@ -29,6 +29,15 @@ When opened as part of the workspace, those rules apply here too.
 - **An unrouted path answers "No static resource …" (404)** — that is the gateway, not the target
   service: WebFlux found no route and fell through to static resources. The first thing to check
   when a new endpoint "does not exist" from outside the cluster.
+- **`presence` is an allowlist, unlike the other routes:** exactly
+  `GET /presence/residents/presence` and `GET /presence/residents/{name}/report`.
+  `presence-service` also serves `GET /home/presence/clients`, which lists the MAC address of
+  every device on the home network and must stay unreachable from outside. A `/**` tail is not
+  enough for that: `PathPattern` matches the raw path, so `residents/../clients` would match and
+  be forwarded unchanged (harmless only while no hop normalises it), and every endpoint the
+  service adds under `/residents` would be published silently. `RoutesConfigTest` asserts the
+  paths and methods that must match nothing. A new endpoint of that service gets its own entry —
+  check first what it exposes.
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external
@@ -41,10 +50,16 @@ When opened as part of the workspace, those rules apply here too.
 ## Spring Cloud on Boot 4.1 — accepted risk
 
 No Spring Cloud release train targets Boot 4.1, so the BOM is not imported and
-`spring-cloud-starter-gateway-server-webflux` is pinned on its own. It works because Boot 4.1.0
-and 4.0.7 share Spring Framework 7.0.x, but it sits outside Spring's compatibility matrix —
+`spring-cloud-starter-gateway-server-webflux` is pinned on its own (**5.0.3**, from the 2025.1.3
+train, itself built against Boot 4.0.8). It works because Boot 4.1.1 and 4.0.8 share Spring
+Framework 7.0.x, but it sits outside Spring's compatibility matrix —
 **re-test the gateway (context up, a route proxies, an unmatched path 404s) after any bump** of
 Boot or the gateway starter, and drop the pin the day a Boot 4.1 train ships.
+
+The quickest way to re-test without a cluster: start the jar with `home,local`, put any HTTP stub on a target's local port and call the route
+through `localhost:6200` — done that way on 2026-10-04 for Boot 4.1.1 / starter 5.0.3 (HAS-152),
+together with logbook 4.2.0, which declares apiguardian 1.1.2 itself, so the pin in
+`dependencyManagement` went away.
 
 ## Errors
 

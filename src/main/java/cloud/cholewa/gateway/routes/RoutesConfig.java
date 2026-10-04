@@ -6,6 +6,7 @@ import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 
 import static org.springframework.cloud.gateway.support.RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR;
 
@@ -31,6 +32,15 @@ public class RoutesConfig {
             .route("database", r -> r.path("/device/configuration/**", "/household", "/household/**")
                 .uri(uri(services.database())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
+            //an allowlist, unlike the other routes: exactly the two reads of the reporting API, by
+            //path and method. /presence/clients lists the MAC address of every device on the home
+            //network and has to stay inside the cluster - with a /** tail a path like
+            //residents/../clients would match and be forwarded as it is, and whatever that service
+            //adds under /residents later would be published without anyone deciding it
+            .route("presence", r -> r
+                .path("/presence/residents/presence", "/presence/residents/{name}/report")
+                .and().method(HttpMethod.GET)
+                .uri(uri(services.presence())))
             .route("water", r -> r.path("/water", "/water/**").uri(uri(services.water())))
             .build();
     }

@@ -13,7 +13,7 @@ Gateway to other home-automation services.
 
 ![GitHub top language](https://img.shields.io/github/languages/top/smart-home-automation-system/api-gateway-service?style=plastic)
 ![Java](https://img.shields.io/badge/java-21-yellow?style=plastic)
-![SpringBoot](https://img.shields.io/badge/SpringBoot-4.1.0-blue?style=plastic)
+![SpringBoot](https://img.shields.io/badge/SpringBoot-4.1.1-blue?style=plastic)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=smart-home-automation-system_api-gateway-service&metric=coverage)](https://sonarcloud.io/summary/new_code?id=smart-home-automation-system_api-gateway-service)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=smart-home-automation-system_api-gateway-service&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=smart-home-automation-system_api-gateway-service)
 
@@ -38,11 +38,14 @@ configuration group.
 
 ## Spring Cloud on Boot 4.1 — accepted risk
 
-No Spring Cloud release train targets Spring Boot 4.1 (2025.1.2, the newest, is built against
-Boot 4.0.7), so the BOM is not imported and `spring-cloud-starter-gateway-server-webflux` is
-pinned on its own (`spring-cloud-gateway.version`). The combination works because Boot 4.1.0 and
-4.0.7 sit on the same Spring Framework 7.0.x line, and it is verified on every change — but it is
-outside Spring's compatibility matrix, so **re-test the gateway after any bump** of either version.
+No Spring Cloud release train targets Spring Boot 4.1 (2025.1.3, the newest, is built against
+Boot 4.0.8), so the BOM is not imported and `spring-cloud-starter-gateway-server-webflux` is
+pinned on its own (`spring-cloud-gateway.version`, **5.0.3**). The combination works because
+Boot 4.1.1 and 4.0.8 sit on the same Spring Framework 7.0.x line, and it is verified on every
+change — but it is outside Spring's compatibility matrix, so **re-test the gateway after any
+bump** of either version. Last re-tested on 2026-10-04 with Boot 4.1.1 and the starter 5.0.3: the
+context starts, a route proxies and carries `traceparent`, an unmatched path answers 404 and an
+unreachable target 502.
 
 ## Run locally
 
@@ -76,10 +79,17 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/device/configuration/**` | `database-service` | `GET` and `POST /home/device/configuration/eaton` — the POST writes device configuration and is unauthenticated |
 | `/home/household`, `/home/household/**` | `database-service` | the household registry: `GET /home/household` and the member/device CRUD under `/home/household/member/...` — unauthenticated like every route here, and it carries members' names, phone numbers and device MACs |
 | `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating`, `GET /home/heating/status/active` |
+| `GET /home/presence/residents/presence`, `GET /home/presence/residents/{name}/report` | `presence-service` | `GET /home/presence/residents/presence` (who is at home now) and `GET /home/presence/residents/{name}/report?from=&to=` — unauthenticated like every route here, and it tells when each household member is at home |
 | `/home/water/**` | `water-service` | `GET /home/water/status/{active,temperature}` |
 
 Hosts and ports come from the `internal.service.*` group: k8s DNS names on 6200 in the cluster,
 `localhost` with each service's own port locally.
+
+The `presence` route is an **allowlist** — exactly those two paths, `GET` only — and deliberately
+narrower than its service: `GET /home/presence/clients`, a diagnostic endpoint listing the MAC
+address of every device on the home network, is **not** routed and answers 404 here, and so does
+anything that service adds later until it is listed. Do not widen the predicate to
+`/presence/**` or `/presence/residents/**`.
 
 `notification-service` is deliberately absent: its `/home/notification/skippy` endpoint has no
 external consumer and was never routed. Add a route the day something outside the cluster needs it.

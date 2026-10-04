@@ -67,6 +67,10 @@ internal:
       scheme: http
       host: heating-service
       port: 6200
+    presence:
+      scheme: http
+      host: presence-service
+      port: 6200
     water:
       scheme: http
       host: water-service
@@ -108,6 +112,9 @@ internal:
     heating:
       host: localhost
       port: 6002
+    presence:
+      host: localhost
+      port: 6009
     water:
       host: localhost
       port: 6006
