@@ -79,17 +79,17 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/device/configuration/**` | `database-service` | `GET` and `POST /home/device/configuration/eaton` — the POST writes device configuration and is unauthenticated |
 | `/home/household`, `/home/household/**` | `database-service` | the household registry: `GET /home/household` and the member/device CRUD under `/home/household/member/...` — unauthenticated like every route here, and it carries members' names, phone numbers and device MACs |
 | `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating`, `GET /home/heating/status/active` |
-| `GET /home/presence/residents/presence`, `GET /home/presence/residents/{name}/report` | `presence-service` | `GET /home/presence/residents/presence` (who is at home now) and `GET /home/presence/residents/{name}/report?from=&to=` — unauthenticated like every route here, and it tells when each household member is at home |
+| `GET /home/presence/residents/presence`, `GET /home/presence/residents/{name}/report`, `GET /home/presence/residents/{name}/report/daily`, `GET /home/presence/house/report` | `presence-service` | who is at home now and, each for a range (`?from=&to=`, both required): when one resident was at home, their daily statistics, and when the house as a whole was occupied or empty — unauthenticated like every route here, and it tells when each household member is at home and when nobody is |
 | `/home/water/**` | `water-service` | `GET /home/water/status/{active,temperature}` |
 
 Hosts and ports come from the `internal.service.*` group: k8s DNS names on 6200 in the cluster,
 `localhost` with each service's own port locally.
 
-The `presence` route is an **allowlist** — exactly those two paths, `GET` only — and deliberately
+The `presence` route is an **allowlist** — exactly those four paths, `GET` only — and deliberately
 narrower than its service: `GET /home/presence/clients`, a diagnostic endpoint listing the MAC
 address of every device on the home network, is **not** routed and answers 404 here, and so does
 anything that service adds later until it is listed. Do not widen the predicate to
-`/presence/**` or `/presence/residents/**`.
+`/presence/**`, `/presence/residents/**` or `/presence/house/**`.
 
 `notification-service` is deliberately absent: its `/home/notification/skippy` endpoint has no
 external consumer and was never routed. Add a route the day something outside the cluster needs it.

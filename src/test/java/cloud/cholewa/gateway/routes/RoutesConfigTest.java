@@ -59,6 +59,9 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/presence/residents/presence")).isEqualTo("presence");
         assertThat(matchedRouteFor("/home/presence/residents/Anna/report")).isEqualTo("presence");
         assertThat(matchedRouteFor("/home/presence/residents/Anna%20Maria/report")).isEqualTo("presence");
+        assertThat(matchedRouteFor("/home/presence/residents/Anna/report/daily")).isEqualTo("presence");
+        assertThat(matchedRouteFor("/home/presence/residents/Anna%20Maria/report/daily")).isEqualTo("presence");
+        assertThat(matchedRouteFor("/home/presence/house/report")).isEqualTo("presence");
         assertThat(matchedRouteFor("/home/amx")).isEqualTo("amx");
         assertThat(matchedRouteFor("/home/ai")).isEqualTo("ai");
         assertThat(matchedRouteFor("/home/nothing")).isNull();
@@ -66,7 +69,7 @@ class RoutesConfigTest {
 
     //the diagnostic endpoint of presence-service answers the MAC address of every device on the home
     //network - it has to stay unreachable from outside, whatever else of that service is routed.
-    //The route is an allowlist of two reads, so nothing else of the service matches: not the
+    //The route is an allowlist of four reads, so nothing else of the service matches: not the
     //endpoint itself, not a path that reaches it through a dot segment, not another method
     @ParameterizedTest
     @ValueSource(strings = {
@@ -80,7 +83,14 @@ class RoutesConfigTest {
         "/home/presence/residents/..%2fclients",
         "/home/presence/residents/Anna",
         "/home/presence/residents/Anna/devices",
-        "/home/presence/residents/Anna/report/x"
+        "/home/presence/residents/Anna/report/x",
+        "/home/presence/residents/Anna/report/daily/x",
+        "/home/presence/house",
+        "/home/presence/house/report/x",
+        "/home/presence/house/../clients",
+        "/home/presence/house/report/",
+        "/home/presence/residents/Anna/report/daily/",
+        "/home/presence/residents/presence/"
     })
     void should_route_nothing_of_presence_service_but_the_reporting_api(final String path) {
         assertThat(matchedRouteFor(path)).isNull();
@@ -91,6 +101,8 @@ class RoutesConfigTest {
     void should_route_only_reads_to_presence_service(final String method) {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/presence/residents/presence")).isNull();
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/presence/residents/Anna/report")).isNull();
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/presence/residents/Anna/report/daily")).isNull();
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/presence/house/report")).isNull();
     }
 
     private String matchedRouteFor(final String path) {

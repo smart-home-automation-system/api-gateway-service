@@ -30,12 +30,13 @@ When opened as part of the workspace, those rules apply here too.
   service: WebFlux found no route and fell through to static resources. The first thing to check
   when a new endpoint "does not exist" from outside the cluster.
 - **`presence` is an allowlist, unlike the other routes:** exactly
-  `GET /presence/residents/presence` and `GET /presence/residents/{name}/report`.
+  `GET /presence/residents/presence`, `GET /presence/residents/{name}/report`,
+  `GET /presence/residents/{name}/report/daily` and `GET /presence/house/report`.
   `presence-service` also serves `GET /home/presence/clients`, which lists the MAC address of
   every device on the home network and must stay unreachable from outside. A `/**` tail is not
   enough for that: `PathPattern` matches the raw path, so `residents/../clients` would match and
   be forwarded unchanged (harmless only while no hop normalises it), and every endpoint the
-  service adds under `/residents` would be published silently. `RoutesConfigTest` asserts the
+  service adds under `/residents` or `/house` would be published silently. `RoutesConfigTest` asserts the
   paths and methods that must match nothing. A new endpoint of that service gets its own entry —
   check first what it exposes.
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
