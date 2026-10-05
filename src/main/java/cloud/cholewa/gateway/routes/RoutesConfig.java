@@ -36,7 +36,7 @@ public class RoutesConfig {
             //and method. /presence/clients lists the MAC address of every device on the home
             //network and has to stay inside the cluster - with a /** tail a path like
             //residents/../clients would match and be forwarded as it is, and whatever that service
-            //adds under /residents later would be published without anyone deciding it
+            //adds under /residents or /house later would be published without anyone deciding it
             .route("presence", r -> r
                 .path(
                     "/presence/residents/presence",
