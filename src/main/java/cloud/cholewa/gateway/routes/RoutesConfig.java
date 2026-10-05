@@ -32,13 +32,17 @@ public class RoutesConfig {
             .route("database", r -> r.path("/device/configuration/**", "/household", "/household/**")
                 .uri(uri(services.database())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
-            //an allowlist, unlike the other routes: exactly the two reads of the reporting API, by
-            //path and method. /presence/clients lists the MAC address of every device on the home
+            //an allowlist, unlike the other routes: exactly the reads of the reporting API, by path
+            //and method. /presence/clients lists the MAC address of every device on the home
             //network and has to stay inside the cluster - with a /** tail a path like
             //residents/../clients would match and be forwarded as it is, and whatever that service
             //adds under /residents later would be published without anyone deciding it
             .route("presence", r -> r
-                .path("/presence/residents/presence", "/presence/residents/{name}/report")
+                .path(
+                    "/presence/residents/presence",
+                    "/presence/residents/{name}/report",
+                    "/presence/residents/{name}/report/daily",
+                    "/presence/house/report")
                 .and().method(HttpMethod.GET)
                 .uri(uri(services.presence())))
             .route("water", r -> r.path("/water", "/water/**").uri(uri(services.water())))
