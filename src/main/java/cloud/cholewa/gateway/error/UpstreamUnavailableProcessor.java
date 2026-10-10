@@ -15,7 +15,9 @@ import java.util.Collections;
 //The gateway is the only service reachable from outside, so what it puts in "details" leaves the
 //cluster - and since the cluster logs are JSON, it is stored and searchable as well. The default
 //processor would pass the connection error through verbatim, which names the internal host, pod IP
-//and port of the target; only the exception type is logged and the caller gets a fixed message
+//and port of the target; only the exception type is logged and the caller gets a fixed message.
+//A broken connection arrives here as UpstreamUnavailableException (see UpstreamFailureFilter),
+//which remembers the type of the failure it stands for
 public class UpstreamUnavailableProcessor implements ExceptionProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(UpstreamUnavailableProcessor.class);
@@ -23,7 +25,7 @@ public class UpstreamUnavailableProcessor implements ExceptionProcessor {
     @Override
     public Errors apply(final Throwable throwable) {
 
-        log.error("Upstream service unreachable [{}]", throwable.getClass().getSimpleName());
+        log.error("Upstream service unreachable [{}]", failureOf(throwable));
 
         return Errors.builder()
             .httpStatus(HttpStatus.BAD_GATEWAY)
@@ -33,5 +35,11 @@ public class UpstreamUnavailableProcessor implements ExceptionProcessor {
                     .build()
             ))
             .build();
+    }
+
+    private static String failureOf(final Throwable throwable) {
+        return throwable instanceof UpstreamUnavailableException unavailable
+            ? unavailable.failure()
+            : throwable.getClass().getSimpleName();
     }
 }

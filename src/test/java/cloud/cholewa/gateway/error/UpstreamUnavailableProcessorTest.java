@@ -5,6 +5,7 @@ import cloud.cholewa.commons.error.model.Errors;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
 
@@ -42,6 +43,16 @@ class UpstreamUnavailableProcessorTest {
         Errors errors = sut.apply(new UnknownHostException("failed to resolve 'boiler-service'"));
 
         assertThat(errors.getHttpStatus()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(errors.getErrors().iterator().next().getDetails()).isNull();
+    }
+
+    //a broken connection arrives wrapped by UpstreamFailureFilter: the answer is the same 502
+    @Test
+    void should_handle_a_connection_the_filter_reported_as_broken() {
+        Errors errors = sut.apply(new UpstreamUnavailableException(new IOException("Connection reset by peer")));
+
+        assertThat(errors.getHttpStatus()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(errors.getErrors().iterator().next().getMessage()).isEqualTo("Upstream service unavailable");
         assertThat(errors.getErrors().iterator().next().getDetails()).isNull();
     }
 }
