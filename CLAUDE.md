@@ -61,8 +61,9 @@ The quickest way to re-test without a cluster: start the jar with `home,local`, 
 through `localhost:6200` — done that way on 2026-10-04 for Boot 4.1.1 / starter 5.0.3 (HAS-152),
 together with logbook 4.2.0, which declares apiguardian 1.1.2 itself, so the pin in
 `dependencyManagement` went away. Repeated on 2026-10-11 for HAS-212 (same versions, the pool
-limits and the retry added): a stub that can reset a connection on request shows the two answers
-that matter there — a `GET` on a reset connection is 200, a `POST` 502 with a body.
+limits and the repetition of a read added): a stub that can reset a connection on request shows
+the two answers that matter there — a `GET` on a reset connection is 200, a `POST` 502 with a
+body.
 
 ## Connections to the targets — the pool (HAS-212)
 
@@ -79,13 +80,31 @@ that matter there — a `GET` on a reset connection is 200, a `POST` 502 with a 
   so `ApiGatewayServiceApplicationTest` pins the three values and `IdleConnectionEvictionTest`
   proves they reach the HTTP client of the hand-pinned starter. Raising the idle time is harmless
   up to hours; it must never get near 24 h.
-- **A `GET` whose connection broke is repeated once** (`RoutesConfig.repeatFailedRead`, the
-  `Retry` filter on every route — a new route gets it too). `GET` only, one repetition, on
-  `IOException` only, `series` emptied on purpose: the filter's defaults would repeat three times
-  and on every 5xx. Never widen it to a write — `POST /home/heating` switches the house. Reactor
-  Netty repeats on its own only while nothing of the request was sent (its WARN "the request
-  cannot be retried as the headers/body were sent" is the other case, and stays in the log also
-  when the retry then succeeds).
+- **A `GET` whose connection broke at once is repeated once** — `FailedReadRepeatFilter`, a
+  **global** filter, so a new route has it without anything in `RoutesConfig`
+  (`UpstreamConnectionFailureTest` runs it through a path of every route). `GET` only, an
+  `IOException` only, only when the attempt failed within `QUICK_FAILURE` (1 s), once. Never widen
+  it to a write — `POST /home/heating` switches the house. Reactor Netty repeats on its own only
+  while nothing of the request was sent (its WARN "the request cannot be retried as the
+  headers/body were sent" is the other case, and stays in the log also when the repetition then
+  succeeds, next to the filter's own WARN `Repeated GET on route [..]`).
+- **Do not replace it with the `Retry` filter of Spring Cloud Gateway** — the first version of
+  HAS-212 did. `RetryGatewayFilterFactory.apply` calls `enableBodyCaching(routeId)`, and
+  `AdaptCachedBodyGlobalFilter` then joins the body of **every** request to that route in memory,
+  with no size limit, before routing — writes included, on the one replica that is the only way
+  in. The `CircuitBreaker` filter factory does the same. `UpstreamConnectionFailureTest` asserts
+  that no request body is cached.
+- **Why the bound on time**: the response-timeout (30 s) applies to each attempt, so a read that
+  broke 25 s in would be run again in full — the caller waits up to twice the timeout and a
+  service with a database pool of 2 runs the statement twice. A stale pooled connection or a
+  refused one fails in milliseconds. The bound also has to stay below the connect-timeout (2 s),
+  or a target that does not answer the connect is waited for twice; a test pins that.
+- **Three things the filter has to do before the second attempt**, each found by a review:
+  `ServerWebExchangeUtils.reset(exchange)` (without it `NettyRoutingFilter` sees the exchange as
+  already routed and the second attempt calls nobody), and stopping the client observation of the
+  failed attempt — `ObservedRequestHttpHeadersFilter` starts one per call and keeps only the
+  latest in `GATEWAY_OBSERVATION_ATTR`, so the first would never be stopped. And it sits *inside*
+  `NettyWriteResponseFilter`: nothing is repeated once an answer is being written.
 - **Every `GET` behind the gateway therefore has to stay a read.** A service that puts a side
   effect behind a `GET` gets it twice now and then.
 
@@ -108,18 +127,37 @@ things to keep when touching it:
 
 - **The exception carries neither the original as its cause nor its message** — either brings the
   "lost client" verdict back, and the message names the internal address. Only the simple class
-  name of the original survives, for the log line.
+  name of the original and the id of the route survive, for the log line
+  (`Upstream service unreachable [NativeIoException] on route [water]`).
 - **It maps only while the response is not committed.** After that an error may really be the
-  caller hanging up, and Spring has to see the original to keep it quiet. The one place the filter
-  cannot tell the sides apart: a caller that hangs up while uploading a request body is logged as
-  an unreachable upstream.
+  caller hanging up, and Spring has to see the original to keep it quiet.
+- **It calls `ServerWebExchangeUtils.reset(exchange)` before mapping.** When the connection breaks
+  between the headers and the body of an answer, the target's headers are already on the
+  response; without the reset the 502 went out with the `Cache-Control` and `ETag` of an answer
+  that never came.
+- **A caller that hangs up while uploading a request body is logged as an unreachable upstream.**
+  Run by hand (2026-10-11, a client announcing 100 kB, sending 10 bytes and closing, against a
+  stub that waits for the whole body): the request to the target is aborted, Reactor Netty logs
+  its WARN, and the processor logs `Upstream service unreachable [AbortedException] on route
+  [water]` (`SocketException` when the caller resets) for a 502 nobody reads. Before an answer the
+  gateway cannot tell which side broke the exchange. Not new noise for the alert on errors: by
+  the sources the same case was a "500 Server Error" at ERROR before HAS-212 (not run on the old
+  build).
 
 ## Tests
 
 - `UpstreamConnectionFailureTest` and `IdleConnectionEvictionTest` start the gateway on a real port
-  and point the `water` route at `StubUpstream`, a plain `ServerSocket`. Not `mockwebserver3`, the
+  and point its routes at `StubUpstream`, a plain `ServerSocket`. Not `mockwebserver3`, the
   org's usual choice: the failure is a TCP reset, which takes `SO_LINGER 0` on the server side, and
   no HTTP mock offers that.
+- **A reset cannot be placed "after the headers" reliably**: it throws away what the other side has
+  not read yet, so whether the gateway ever sees the headers is a race (a fixed sleep hid it for
+  one review). The stub therefore *closes* the connection there (`CLOSE_AFTER_HEADERS`); that a
+  reset text is mapped in that phase too is covered by `UpstreamFailureFilterTest` alone.
+- `FailedReadRepeatFilterTest` moves the clock of the filter by hand (a `LongSupplier`), so both
+  sides of the 1 s bound are tested without waiting; it and `UpstreamUnavailableProcessorTest`
+  assert the **level** of their log lines — WARN for a repaired read, ERROR for a 502 — because
+  the level is what the alerts see.
 - **The bare 500 shows only on Linux.** There a reset reads "Connection reset by peer"; on Windows
   it reads "Connection reset" and was a 502 all along. The tests pass on both, but only a run on
   Linux (CI, or `mvn verify` in a `maven:3.9-eclipse-temurin-21` container with `~/.m2` mounted)

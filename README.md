@@ -119,16 +119,43 @@ gateway kept such connections for days - a call to a service used once and then 
 
 Two more things hold whatever still breaks inside the error contract:
 
-- **A `GET` whose connection to the service broke is sent once more**, on another connection (the
-  `Retry` filter, on every route). Only `GET`, only once, only for a broken connection: a write is
-  never repeated (it may have been carried out before the connection broke), an error status of a
-  service is passed on as it is, and a response timeout is not waited for twice. A `GET` to a
-  service that is down therefore takes two connection attempts before its 502.
-- **A broken connection is always a 502 with a body.** "Connection reset by peer" is a text Spring
-  takes for *the caller* having gone away, and it then answers a bare 500; `UpstreamFailureFilter`
-  hands such a failure to the error handler as what it is in a gateway - the target's.
+- **A `GET` whose connection to the service broke at once is sent once more**, on another
+  connection (`FailedReadRepeatFilter`, a global filter - every route has it, also one added
+  later). The rule is narrow on purpose:
+  - `GET` only. A write is never repeated: it may have been carried out before the connection
+    broke. Nor are `HEAD` and `OPTIONS`.
+  - Only a broken connection (`IOException`). An error status of a service is its own answer and
+    is passed on as it is; a response timeout is the gateway's 504 and is not waited for twice.
+  - Only a failure within **1 second** of the attempt starting. A connection that is dead in the
+    pool, or refused, fails in milliseconds; a read that broke after seconds of waiting is not run
+    again - the response timeout applies to each attempt, and the caller would wait up to twice
+    as long. The second also stays below the connect timeout (2 s), so a service that does not
+    answer the connect is not waited for twice.
+  - Once. A second failure is the 502.
+  - A repaired `GET` leaves one WARN in the log, `Repeated GET on route [water] after a broken
+    connection [...]` - the only trace of a failure the caller never saw.
 
-Not covered: once the first byte of an answer has gone to the caller, a connection that breaks
-leaves a broken response; and a service that disappears without closing its connections (a node
-losing power) leaves dead ones in the pool for up to two minutes - a `GET` is repeated, a write
-gets the 502.
+  It is not the `Retry` filter of Spring Cloud Gateway: that one makes the gateway keep the body
+  of every request to its route in memory, without a limit, to be able to send it again. Nothing
+  with a body is sent again here, so nothing is kept - a request body is streamed to the service.
+- **A broken connection is always a 502 with a body**, as long as nothing of an answer has been
+  sent to the caller. "Connection reset by peer" is a text Spring takes for *the caller* having
+  gone away, and it then answers a bare 500; `UpstreamFailureFilter` hands such a failure to the
+  error handler as what it is in a gateway - the target's. A connection that breaks between the
+  headers and the body of an answer is a 502 as well, without the headers of the answer that
+  never came, and is not repeated. The ERROR line names the kind of failure and the route:
+  `Upstream service unreachable [NativeIoException] on route [water]`.
+
+What remains:
+
+- Once the first byte of an answer has gone to the caller, a connection that breaks leaves a
+  broken response.
+- A caller that hangs up in the middle of uploading a request body is logged as an unreachable
+  upstream (ERROR, and a 502 nobody reads): the request to the service is aborted, and before
+  an answer the gateway cannot tell which side broke the exchange. Seen in a run by hand.
+- A service that disappears without closing its connections - a node losing power - sends no
+  reset either. A request on one of the connections left in the pool (for up to two minutes)
+  is then not refused but unanswered: it waits for the response timeout and gets the 504, which
+  is not repeated. This is reasoning from how TCP behaves; it was not tested.
+- With several dead connections to one service in the pool, the repeated `GET` can be handed
+  another dead one and answer the 502. Not tested either.
