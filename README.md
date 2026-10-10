@@ -43,9 +43,10 @@ Boot 4.0.8), so the BOM is not imported and `spring-cloud-starter-gateway-server
 pinned on its own (`spring-cloud-gateway.version`, **5.0.3**). The combination works because
 Boot 4.1.1 and 4.0.8 sit on the same Spring Framework 7.0.x line, and it is verified on every
 change — but it is outside Spring's compatibility matrix, so **re-test the gateway after any
-bump** of either version. Last re-tested on 2026-10-04 with Boot 4.1.1 and the starter 5.0.3: the
-context starts, a route proxies and carries `traceparent`, an unmatched path answers 404 and an
-unreachable target 502.
+bump** of either version. Last re-tested on 2026-10-11 with Boot 4.1.1 and the starter 5.0.3
+(HAS-212, with the limits of the connection pool and the retry of a read): the context starts, a
+route proxies and carries `traceparent`, an unmatched path answers 404, an unreachable target 502,
+and a connection reset by the target answers 200 for a `GET` and 502 for a `POST`.
 
 ## Run locally
 
@@ -78,9 +79,9 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/boiler/**` | `boiler-service` | `GET /home/boiler/status` |
 | `/home/device/configuration/**` | `database-service` | `GET` and `POST /home/device/configuration/eaton` — the POST writes device configuration and is unauthenticated |
 | `/home/household`, `/home/household/**` | `database-service` | the household registry: `GET /home/household` and the member/device CRUD under `/home/household/member/...` — unauthenticated like every route here, and it carries members' names, phone numbers and device MACs |
-| `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating`, `GET /home/heating/status/active` |
+| `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating` (the `POST` switches the heating of the house), `GET /home/heating/status/active`, `GET /home/heating/temperature/sensors`, `GET /home/heating/rooms`, `GET /home/heating/rooms/{name}`, `GET /home/heating/rooms/{name}/temperature/history`, `GET /home/heating/floor-pump` |
 | `GET /home/presence/residents/presence`, `GET /home/presence/residents/{name}/report`, `GET /home/presence/residents/{name}/report/daily`, `GET /home/presence/house/report` | `presence-service` | who is at home now and, each for a range (`?from=&to=`, both required): when one resident was at home, their daily statistics, and when the house as a whole was occupied or empty — unauthenticated like every route here, and it tells when each household member is at home and when nobody is |
-| `/home/water/**` | `water-service` | `GET /home/water/status/{active,temperature}` |
+| `/home/water/**` | `water-service` | `GET /home/water/status/{active,temperature}`, `GET /home/water/temperature/history` |
 
 Hosts and ports come from the `internal.service.*` group: k8s DNS names on 6200 in the cluster,
 `localhost` with each service's own port locally.
@@ -94,8 +95,40 @@ anything that service adds later until it is listed. Do not widen the predicate 
 `notification-service` is deliberately absent: its `/home/notification/skippy` endpoint has no
 external consumer and was never routed. Add a route the day something outside the cluster needs it.
 
-Anything not matched returns 404; a route whose target is unreachable — refused, unresolvable or
-dropped mid-response — returns 502 with a fixed message, deliberately without the internal host and
-port (see `UpstreamUnavailableProcessor`). The HTTP client connects with a 2 s timeout and waits 30 s
-for a response; the `ai` route overrides that to 120 s, because an OpenAI answer legitimately takes
-longer than anything else here.
+Anything not matched returns 404; a route whose target is unreachable — refused, unresolvable,
+reset or dropped mid-response — returns 502 with a fixed message, deliberately without the internal
+host and port (see `UpstreamUnavailableProcessor`). The HTTP client connects with a 2 s timeout and
+waits 30 s for a response; the `ai` route overrides that to 120 s, because an OpenAI answer
+legitimately takes longer than anything else here.
+
+## Connections to the services
+
+The gateway keeps its connections to the services in a pool, and since HAS-212 the pool has limits
+(`spring.cloud.gateway.server.webflux.httpclient.pool` in `application.yaml`):
+
+| Setting | Value | Why |
+|---|---|---|
+| `max-idle-time` | 2 min | a connection nothing has travelled on for 24 h is dead without the gateway knowing (below); 2 minutes is far under that and above the 30 s and 60 s the dashboards poll at |
+| `max-life-time` | 30 min | bounds the life of a connection that is in constant use and never becomes idle |
+| `eviction-interval` | 30 s | closes an expired or broken connection while nobody is calling, instead of at the next request |
+
+What they are for: the node forgets the address translation of a connection that has been silent
+for 24 hours. When the pod of the service is replaced after that, its close never reaches the
+gateway, and the next request on that connection is answered with a reset. Without a limit the
+gateway kept such connections for days - a call to a service used once and then left alone failed.
+
+Two more things hold whatever still breaks inside the error contract:
+
+- **A `GET` whose connection to the service broke is sent once more**, on another connection (the
+  `Retry` filter, on every route). Only `GET`, only once, only for a broken connection: a write is
+  never repeated (it may have been carried out before the connection broke), an error status of a
+  service is passed on as it is, and a response timeout is not waited for twice. A `GET` to a
+  service that is down therefore takes two connection attempts before its 502.
+- **A broken connection is always a 502 with a body.** "Connection reset by peer" is a text Spring
+  takes for *the caller* having gone away, and it then answers a bare 500; `UpstreamFailureFilter`
+  hands such a failure to the error handler as what it is in a gateway - the target's.
+
+Not covered: once the first byte of an answer has gone to the caller, a connection that breaks
+leaves a broken response; and a service that disappears without closing its connections (a node
+losing power) leaves dead ones in the pool for up to two minutes - a `GET` is repeated, a write
+gets the 502.

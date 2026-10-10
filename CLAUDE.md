@@ -60,14 +60,72 @@ Boot or the gateway starter, and drop the pin the day a Boot 4.1 train ships.
 The quickest way to re-test without a cluster: start the jar with `home,local`, put any HTTP stub on a target's local port and call the route
 through `localhost:6200` — done that way on 2026-10-04 for Boot 4.1.1 / starter 5.0.3 (HAS-152),
 together with logbook 4.2.0, which declares apiguardian 1.1.2 itself, so the pin in
-`dependencyManagement` went away.
+`dependencyManagement` went away. Repeated on 2026-10-11 for HAS-212 (same versions, the pool
+limits and the retry added): a stub that can reset a connection on request shows the two answers
+that matter there — a `GET` on a reset connection is 200, a `POST` 502 with a body.
+
+## Connections to the targets — the pool (HAS-212)
+
+- **An idle connection must leave the pool long before 24 h.** The node drops a TCP connection
+  from its connection-tracking table after 24 h of silence (`nf_conntrack_tcp_timeout_established`
+  = 86400, what kube-proxy sets), and with it the address translation of the Service. When the
+  target pod is replaced after that, its close cannot be translated back and never reaches the
+  gateway; the next request on that connection gets a reset. That was the bare 500 of
+  2026-10-08 (`water`, a connection idle for 32 h when the pod was replaced, used 40 h later) and
+  of 2026-10-06 (`boiler`, 28 h). A connection idle for 36 minutes at a redeploy was closed
+  properly — a close that arrives is handled by the pool on its own.
+- The limits are `httpclient.pool.*` in `application.yaml`: `max-idle-time` 2 min, `max-life-time`
+  30 min, `eviction-interval` 30 s. **Each defaults to "no limit" when left out**, without a word,
+  so `ApiGatewayServiceApplicationTest` pins the three values and `IdleConnectionEvictionTest`
+  proves they reach the HTTP client of the hand-pinned starter. Raising the idle time is harmless
+  up to hours; it must never get near 24 h.
+- **A `GET` whose connection broke is repeated once** (`RoutesConfig.repeatFailedRead`, the
+  `Retry` filter on every route — a new route gets it too). `GET` only, one repetition, on
+  `IOException` only, `series` emptied on purpose: the filter's defaults would repeat three times
+  and on every 5xx. Never widen it to a write — `POST /home/heating` switches the house. Reactor
+  Netty repeats on its own only while nothing of the request was sent (its WARN "the request
+  cannot be retried as the headers/body were sent" is the other case, and stays in the log also
+  when the retry then succeeds).
+- **Every `GET` behind the gateway therefore has to stay a read.** A service that puts a side
+  effect behind a `GET` gets it twice now and then.
 
 ## Errors
 
 `UpstreamUnavailableProcessor` maps every `IOException` from a target (unknown host, refused
-connection, premature close) to **502 "Upstream service unavailable"** with no details and logs
-only the exception type: the gateway's responses leave the cluster and its logs are stored, so the
-internal host, pod IP and port a connection error names must not appear in either.
+connection, premature close, reset) to **502 "Upstream service unavailable"** with no details and
+logs only the exception type: the gateway's responses leave the cluster and its logs are stored, so
+the internal host, pod IP and port a connection error names must not appear in either.
+
+**An `IOException` alone does not get there** (HAS-212). `AbstractErrorWebExceptionHandler` — the
+parent of the `cholewa-commons` handler — refuses to render whatever
+`DisconnectedClientHelper.isClientDisconnectedException` takes for a caller that has gone away,
+and `HttpWebHandlerAdapter` then answers a bare 500. That helper goes by the innermost message
+(`connection reset by peer`, `broken pipe`) and by class names anywhere in the cause chain
+(`AbortedException`, `EOFException`, …) — exactly what a target dropping its connection produces.
+`UpstreamFailureFilter` (a global filter just outside `NettyWriteResponseFilter`) turns a broken
+connection seen before anything was sent to the caller into `UpstreamUnavailableException`. Two
+things to keep when touching it:
+
+- **The exception carries neither the original as its cause nor its message** — either brings the
+  "lost client" verdict back, and the message names the internal address. Only the simple class
+  name of the original survives, for the log line.
+- **It maps only while the response is not committed.** After that an error may really be the
+  caller hanging up, and Spring has to see the original to keep it quiet. The one place the filter
+  cannot tell the sides apart: a caller that hangs up while uploading a request body is logged as
+  an unreachable upstream.
+
+## Tests
+
+- `UpstreamConnectionFailureTest` and `IdleConnectionEvictionTest` start the gateway on a real port
+  and point the `water` route at `StubUpstream`, a plain `ServerSocket`. Not `mockwebserver3`, the
+  org's usual choice: the failure is a TCP reset, which takes `SO_LINGER 0` on the server side, and
+  no HTTP mock offers that.
+- **The bare 500 shows only on Linux.** There a reset reads "Connection reset by peer"; on Windows
+  it reads "Connection reset" and was a 502 all along. The tests pass on both, but only a run on
+  Linux (CI, or `mvn verify` in a `maven:3.9-eclipse-temurin-21` container with `~/.m2` mounted)
+  can fail for that reason; `UpstreamFailureFilterTest` pins the mechanism with the Linux text.
+- A `@SpringBootTest` with a real port sets `management.server.port=0`, or two contexts fight over
+  8200.
 
 ## Tracing and logging
 
