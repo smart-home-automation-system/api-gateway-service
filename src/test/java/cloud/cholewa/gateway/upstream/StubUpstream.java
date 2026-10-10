@@ -24,15 +24,17 @@ final class StubUpstream implements AutoCloseable {
     enum Failure {
         //the request is read and the connection is reset without a single byte of an answer
         RESET_BEFORE_RESPONSE,
-        //the status line and the headers are sent and, once the gateway has had the time to read
-        //them, the connection is reset before the body
-        RESET_AFTER_HEADERS
+        //the status line and the headers are sent and the connection is closed before the body. A
+        //close and not a reset on purpose: a reset throws away what the other side has not read
+        //yet, so whether the gateway ever sees the headers would be a race; after a close it does
+        CLOSE_AFTER_HEADERS
     }
 
-    record Exchange(int connection, int requestOnConnection, String method, String path) {
+    record Exchange(int connection, int requestOnConnection, String method, String path, int bodyLength) {
     }
 
     static final String BODY = "{\"water\":41.5}";
+    static final String ETAG = "\"reading-1\"";
 
     private final ServerSocket serverSocket;
     private final List<Exchange> exchanges = new CopyOnWriteArrayList<>();
@@ -119,24 +121,26 @@ final class StubUpstream implements AutoCloseable {
                     connectionsClosedByPeer.incrementAndGet();
                     return;
                 }
-                skipBody(in, head);
+                int bodyLength = readBody(in, head);
 
                 String[] requestLine = head.substring(0, head.indexOf("\r\n")).split(" ");
                 requestOnConnection++;
-                exchanges.add(new Exchange(connection, requestOnConnection, requestLine[0], requestLine[1]));
+                exchanges.add(
+                    new Exchange(connection, requestOnConnection, requestLine[0], requestLine[1], bodyLength)
+                );
 
                 if (failuresLeft.getAndUpdate(left -> Math.max(0, left - 1)) > 0) {
-                    if (failure.get() == Failure.RESET_AFTER_HEADERS) {
-                        out.write(head(200).getBytes(StandardCharsets.US_ASCII));
+                    if (failure.get() == Failure.CLOSE_AFTER_HEADERS) {
+                        out.write(head().getBytes(StandardCharsets.US_ASCII));
                         out.flush();
-                        pause();
+                    } else {
+                        //with a linger of zero close() drops the connection with an RST
+                        socket.setSoLinger(true, 0);
                     }
-                    //with a linger of zero close() drops the connection with an RST
-                    socket.setSoLinger(true, 0);
                     return;
                 }
 
-                out.write((head(200) + BODY).getBytes(StandardCharsets.US_ASCII));
+                out.write((head() + BODY).getBytes(StandardCharsets.US_ASCII));
                 out.flush();
             }
         } catch (IOException e) {
@@ -146,19 +150,12 @@ final class StubUpstream implements AutoCloseable {
         }
     }
 
-    //a reset throws away what the other side has not read yet, so without a pause the headers
-    //may never be seen and the failure would be one before the response
-    private static void pause() {
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private static String head(final int status) {
-        return "HTTP/1.1 " + status + " OK\r\n"
+    //with two headers a caller must never get together with an error of the gateway
+    private static String head() {
+        return "HTTP/1.1 200 OK\r\n"
             + "Content-Type: application/json\r\n"
+            + "Cache-Control: max-age=3600\r\n"
+            + "ETag: " + ETAG + "\r\n"
             + "Content-Length: " + BODY.length() + "\r\n"
             + "\r\n";
     }
@@ -178,14 +175,18 @@ final class StubUpstream implements AutoCloseable {
         return head.toString();
     }
 
-    private static void skipBody(final InputStream in, final String head) throws IOException {
+    //reads the body a Content-Length announces and answers how long it was
+    private static int readBody(final InputStream in, final String head) throws IOException {
         for (String line : head.split("\r\n")) {
             if (line.toLowerCase(Locale.ROOT).startsWith("content-length:")) {
                 int length = Integer.parseInt(line.substring(line.indexOf(':') + 1).trim());
                 if (in.readNBytes(length).length < length) {
                     throw new IOException("The request body broke off");
                 }
+                return length;
             }
         }
+
+        return 0;
     }
 }

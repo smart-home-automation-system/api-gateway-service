@@ -1,8 +1,12 @@
 package cloud.cholewa.gateway.error;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.NettyWriteResponseFilter;
+import org.springframework.cloud.gateway.route.Route;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -14,6 +18,7 @@ import reactor.test.StepVerifier;
 
 import java.io.IOException;
 import java.net.ConnectException;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,6 +33,14 @@ class UpstreamFailureFilterTest {
 
     private final MockServerWebExchange exchange =
         MockServerWebExchange.from(MockServerHttpRequest.get("/home/water/status/temperature"));
+
+    @BeforeEach
+    void setUp() {
+        exchange.getAttributes().put(
+            ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR,
+            Route.async().id("water").uri("http://water-service:6200").predicate(ignored -> true).build()
+        );
+    }
 
     //the reason of the filter: this is the check that made the error handler refuse the exception
     @Test
@@ -44,14 +57,15 @@ class UpstreamFailureFilterTest {
     }
 
     //neither the cause nor its message: both name the internal address, and both would bring the
-    //"lost client" verdict back
+    //"lost client" verdict back. The id of the route is a name of this repository
     @Test
-    void should_keep_the_type_of_the_failure_and_nothing_else() {
+    void should_keep_the_type_of_the_failure_and_the_route_and_nothing_else() {
         IOException reset = new IOException("Connection reset by peer: water-service/10.96.0.7:6200");
 
         StepVerifier.create(sut.filter(exchange, failingWith(reset)))
             .expectErrorSatisfies(error -> {
                 assertThat(((UpstreamUnavailableException) error).failure()).isEqualTo("IOException");
+                assertThat(((UpstreamUnavailableException) error).route()).isEqualTo("water");
                 assertThat(error).hasNoCause();
                 assertThat(error.getMessage()).isEqualTo("Upstream service unavailable");
             })
@@ -96,6 +110,25 @@ class UpstreamFailureFilterTest {
         StepVerifier.create(sut.filter(exchange, failingWith(brokenPipe)))
             .expectErrorMatches(brokenPipe::equals)
             .verify();
+    }
+
+    //the connection broke between the headers and the body of an answer: the headers of the target
+    //are on the response already, and the 502 must not go out with them
+    @Test
+    void should_take_the_headers_of_the_broken_answer_off_the_response() {
+        exchange.getResponse().getHeaders().add(HttpHeaders.ETAG, "\"reading-1\"");
+        exchange.getResponse().getHeaders().add(HttpHeaders.CACHE_CONTROL, "max-age=3600");
+        exchange.getResponse().getHeaders().add("X-Own", "set by the gateway");
+        exchange.getAttributes().put(
+            ServerWebExchangeUtils.CLIENT_RESPONSE_HEADER_NAMES,
+            Set.of(HttpHeaders.ETAG, HttpHeaders.CACHE_CONTROL)
+        );
+
+        StepVerifier.create(sut.filter(exchange, failingWith(new IOException("Connection prematurely closed DURING response"))))
+            .expectError(UpstreamUnavailableException.class)
+            .verify();
+
+        assertThat(exchange.getResponse().getHeaders().headerNames()).containsExactly("X-Own");
     }
 
     @Test

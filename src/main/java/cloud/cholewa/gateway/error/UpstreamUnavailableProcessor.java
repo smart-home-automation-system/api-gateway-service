@@ -17,7 +17,7 @@ import java.util.Collections;
 //processor would pass the connection error through verbatim, which names the internal host, pod IP
 //and port of the target; only the exception type is logged and the caller gets a fixed message.
 //A broken connection arrives here as UpstreamUnavailableException (see UpstreamFailureFilter),
-//which remembers the type of the failure it stands for
+//which remembers the type of the failure it stands for and the route it happened on
 public class UpstreamUnavailableProcessor implements ExceptionProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(UpstreamUnavailableProcessor.class);
@@ -25,7 +25,11 @@ public class UpstreamUnavailableProcessor implements ExceptionProcessor {
     @Override
     public Errors apply(final Throwable throwable) {
 
-        log.error("Upstream service unreachable [{}]", failureOf(throwable));
+        if (throwable instanceof UpstreamUnavailableException unavailable) {
+            log.error("Upstream service unreachable [{}] on route [{}]", unavailable.failure(), unavailable.route());
+        } else {
+            log.error("Upstream service unreachable [{}]", throwable.getClass().getSimpleName());
+        }
 
         return Errors.builder()
             .httpStatus(HttpStatus.BAD_GATEWAY)
@@ -35,11 +39,5 @@ public class UpstreamUnavailableProcessor implements ExceptionProcessor {
                     .build()
             ))
             .build();
-    }
-
-    private static String failureOf(final Throwable throwable) {
-        return throwable instanceof UpstreamUnavailableException unavailable
-            ? unavailable.failure()
-            : throwable.getClass().getSimpleName();
     }
 }
