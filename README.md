@@ -124,6 +124,9 @@ Two more things hold whatever still breaks inside the error contract:
   later). The rule is narrow on purpose:
   - `GET` only. A write is never repeated: it may have been carried out before the connection
     broke. Nor are `HEAD` and `OPTIONS`.
+  - Only a `GET` without a body (no `Content-Length` above zero, no `Transfer-Encoding`). The
+    gateway passes a body on as it comes and cannot read it a second time; a `GET` that carries
+    one is sent once, like a write.
   - Only a broken connection (`IOException`). An error status of a service is its own answer and
     is passed on as it is; a response timeout is the gateway's 504 and is not waited for twice.
   - Only a failure within **1 second** of the attempt starting. A connection that is dead in the
@@ -132,12 +135,15 @@ Two more things hold whatever still breaks inside the error contract:
     as long. The second also stays below the connect timeout (2 s), so a service that does not
     answer the connect is not waited for twice.
   - Once. A second failure is the 502.
-  - A repaired `GET` leaves one WARN in the log, `Repeated GET on route [water] after a broken
-    connection [...]` - the only trace of a failure the caller never saw.
+  - Every repetition leaves one WARN in the log, written before the second attempt: `Repeating
+    GET on route [water] after a broken connection [...]`. When the second attempt succeeds it is
+    the only trace of a failure the caller never saw; when it fails too, the ERROR of the 502
+    follows it.
 
   It is not the `Retry` filter of Spring Cloud Gateway: that one makes the gateway keep the body
-  of every request to its route in memory, without a limit, to be able to send it again. Nothing
-  with a body is sent again here, so nothing is kept - a request body is streamed to the service.
+  of every request to its route in memory, without a limit, to be able to send it again. Here no
+  request that announces a body is sent again, so nothing is kept - a request body is streamed
+  to the service.
 - **A broken connection is always a 502 with a body**, as long as nothing of an answer has been
   sent to the caller. "Connection reset by peer" is a text Spring takes for *the caller* having
   gone away, and it then answers a bare 500; `UpstreamFailureFilter` hands such a failure to the

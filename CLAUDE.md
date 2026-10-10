@@ -86,8 +86,16 @@ body.
   `IOException` only, only when the attempt failed within `QUICK_FAILURE` (1 s), once. Never widen
   it to a write — `POST /home/heating` switches the house. Reactor Netty repeats on its own only
   while nothing of the request was sent (its WARN "the request cannot be retried as the
-  headers/body were sent" is the other case, and stays in the log also when the repetition then
-  succeeds, next to the filter's own WARN `Repeated GET on route [..]`).
+  headers/body were sent" is the other case, and stays in the log next to the filter's own WARN
+  `Repeating GET on route [..] after a broken connection [..]`). That line is written **before**
+  the second attempt, so a repetition that fails as well is counted too — logged on success
+  only, the count was lowest when things were worst.
+- **Only a `GET` that announces no body is repeated** (`Content-Length` at most 0 and no
+  `Transfer-Encoding`). The filter keeps nothing, and the body of the caller can be read once: a
+  repeated `GET` with a body went out with its `Content-Length` and **without** its body, the
+  connection returned to the pool, and the target read the next caller's request as the missing
+  bytes — a desync of a shared connection, found by the second review. Anything that would repeat
+  a request with a body has to hold that body, which is what the `Retry` filter below does.
 - **Do not replace it with the `Retry` filter of Spring Cloud Gateway** — the first version of
   HAS-212 did. `RetryGatewayFilterFactory.apply` calls `enableBodyCaching(routeId)`, and
   `AdaptCachedBodyGlobalFilter` then joins the body of **every** request to that route in memory,
@@ -98,13 +106,18 @@ body.
   broke 25 s in would be run again in full — the caller waits up to twice the timeout and a
   service with a database pool of 2 runs the statement twice. A stale pooled connection or a
   refused one fails in milliseconds. The bound also has to stay below the connect-timeout (2 s),
-  or a target that does not answer the connect is waited for twice; a test pins that.
+  or a target that does not answer the connect is waited for twice;
+  `ApiGatewayServiceApplicationTest` holds the constant against the bound `connect-timeout`, so a
+  change of either one shows.
 - **Three things the filter has to do before the second attempt**, each found by a review:
   `ServerWebExchangeUtils.reset(exchange)` (without it `NettyRoutingFilter` sees the exchange as
   already routed and the second attempt calls nobody), and stopping the client observation of the
   failed attempt — `ObservedRequestHttpHeadersFilter` starts one per call and keeps only the
-  latest in `GATEWAY_OBSERVATION_ATTR`, so the first would never be stopped. And it sits *inside*
-  `NettyWriteResponseFilter`: nothing is repeated once an answer is being written.
+  latest in `GATEWAY_OBSERVATION_ATTR`, so the first would never be stopped (stopped without a
+  look at the "already stopped" mark of the response filter: that is set when the headers of an
+  answer arrive, and a failure reaches this filter only before). And it sits *inside*
+  `NettyWriteResponseFilter` and `GatewayMetricsFilter`: nothing is repeated once an answer is
+  being written, and a repeated request is timed as one — asserted on the beans' orders.
 - **Every `GET` behind the gateway therefore has to stay a read.** A service that puts a side
   effect behind a `GET` gets it twice now and then.
 
@@ -156,8 +169,10 @@ things to keep when touching it:
   reset text is mapped in that phase too is covered by `UpstreamFailureFilterTest` alone.
 - `FailedReadRepeatFilterTest` moves the clock of the filter by hand (a `LongSupplier`), so both
   sides of the 1 s bound are tested without waiting; it and `UpstreamUnavailableProcessorTest`
-  assert the **level** of their log lines — WARN for a repaired read, ERROR for a 502 — because
+  assert the **level** of their log lines — WARN for a repetition, ERROR for a 502 — because
   the level is what the alerts see.
+- A `GET` with a body is written to a raw socket in `UpstreamConnectionFailureTest`: not every
+  HTTP client sends one, and the case is about the bytes on the wire.
 - **The bare 500 shows only on Linux.** There a reset reads "Connection reset by peer"; on Windows
   it reads "Connection reset" and was a 502 all along. The tests pass on both, but only a run on
   Linux (CI, or `mvn verify` in a `maven:3.9-eclipse-temurin-21` container with `~/.m2` mounted)
