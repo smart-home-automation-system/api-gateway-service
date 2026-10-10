@@ -1,9 +1,9 @@
 package cloud.cholewa.gateway.error;
 
+import cloud.cholewa.gateway.routes.RouteId;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.filter.NettyWriteResponseFilter;
-import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
@@ -56,8 +56,6 @@ public class UpstreamFailureFilter implements GlobalFilter, Ordered {
         //with the Cache-Control, ETag or Content-Encoding of an answer that never came
         ServerWebExchangeUtils.reset(exchange);
 
-        Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
-
-        return new UpstreamUnavailableException(throwable, route != null ? route.getId() : "unknown");
+        return new UpstreamUnavailableException(throwable, RouteId.of(exchange));
     }
 }

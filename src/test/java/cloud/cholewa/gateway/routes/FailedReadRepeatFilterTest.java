@@ -68,10 +68,10 @@ class FailedReadRepeatFilterTest {
         assertThat(attempts.count()).isEqualTo(2);
     }
 
-    //the repetition is the only trace of a failure the caller never sees - and WARN is the level at
-    //which it shows without raising the alert on errors
+    //the only trace of a failure the caller never sees - and WARN is the level at which it shows
+    //without raising the alert on errors
     @Test
-    void should_log_a_repaired_read_at_warn_with_its_route() {
+    void should_log_a_repetition_at_warn_with_its_route() {
         Attempts attempts = new Attempts(new IOException("Connection reset by peer: water-service/10.96.0.7:6200"));
 
         StepVerifier.create(sut.filter(exchange(HttpMethod.GET), attempts)).verifyComplete();
@@ -79,7 +79,7 @@ class FailedReadRepeatFilterTest {
         assertThat(log.list).hasSize(1);
         assertThat(log.list.getFirst().getLevel()).isEqualTo(Level.WARN);
         assertThat(log.list.getFirst().getFormattedMessage())
-            .isEqualTo("Repeated GET on route [water] after a broken connection [IOException]");
+            .isEqualTo("Repeating GET on route [water] after a broken connection [IOException]");
     }
 
     //the second failure goes on as it is: UpstreamFailureFilter makes the 502 of it
@@ -93,7 +93,45 @@ class FailedReadRepeatFilterTest {
             .verify();
 
         assertThat(attempts.count()).isEqualTo(2);
+        //the line is written before the second attempt: a repetition that fails is counted too
+        assertThat(log.list).extracting(ILoggingEvent::getLevel).containsExactly(Level.WARN);
+    }
+
+    //the body of the caller can be read once: a GET that announces one would be sent again with its
+    //Content-Length and without its body, and the target would read the next request on that
+    //connection as the missing bytes
+    @Test
+    void should_not_repeat_a_get_that_announces_a_body_by_its_length() {
+        IOException reset = new IOException("Connection reset by peer");
+        Attempts attempts = new Attempts(reset);
+        MockServerWebExchange exchange = exchange(MockServerHttpRequest.get(PATH).header("Content-Length", "5"));
+
+        StepVerifier.create(sut.filter(exchange, attempts)).expectErrorMatches(reset::equals).verify();
+
+        assertThat(attempts.count()).isEqualTo(1);
         assertThat(log.list).isEmpty();
+    }
+
+    @Test
+    void should_not_repeat_a_get_that_announces_a_body_by_its_transfer_encoding() {
+        IOException reset = new IOException("Connection reset by peer");
+        Attempts attempts = new Attempts(reset);
+        MockServerWebExchange exchange = exchange(MockServerHttpRequest.get(PATH).header("Transfer-Encoding", "chunked"));
+
+        StepVerifier.create(sut.filter(exchange, attempts)).expectErrorMatches(reset::equals).verify();
+
+        assertThat(attempts.count()).isEqualTo(1);
+    }
+
+    //a length of zero announces nothing: some clients send it with every request
+    @Test
+    void should_repeat_a_get_with_a_content_length_of_zero() {
+        Attempts attempts = new Attempts(new IOException("Connection reset by peer"));
+        MockServerWebExchange exchange = exchange(MockServerHttpRequest.get(PATH).header("Content-Length", "0"));
+
+        StepVerifier.create(sut.filter(exchange, attempts)).verifyComplete();
+
+        assertThat(attempts.count()).isEqualTo(2);
     }
 
     //a write may have been carried out before the connection broke; HEAD and OPTIONS are simply
@@ -133,13 +171,6 @@ class FailedReadRepeatFilterTest {
             .verify();
 
         assertThat(attempts.count()).isEqualTo(1);
-    }
-
-    //the bound has to stay below the connect-timeout, or a target that does not answer the connect
-    //is waited for twice
-    @Test
-    void should_keep_the_bound_below_the_connect_timeout() {
-        assertThat(FailedReadRepeatFilter.QUICK_FAILURE).isLessThan(Duration.ofMillis(2000));
     }
 
     //a response-timeout arrives as the 504 of the gateway, with the TimeoutException as its cause;
@@ -234,14 +265,20 @@ class FailedReadRepeatFilterTest {
         assertThat(observationLeft).containsExactly(false, false);
     }
 
-    //inside the filter that writes the answer to the caller, so nothing is repeated once that began
+    //inside the filter that writes the answer to the caller, so nothing is repeated once that
+    //began. Its place against the metrics filter is asserted on the beans, in
+    //ApiGatewayServiceApplicationTest
     @Test
     void should_run_inside_the_filter_that_writes_the_response() {
         assertThat(sut.getOrder()).isGreaterThan(NettyWriteResponseFilter.WRITE_RESPONSE_FILTER_ORDER);
     }
 
     private static MockServerWebExchange exchange(final HttpMethod method) {
-        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.method(method, PATH));
+        return exchange(MockServerHttpRequest.method(method, PATH));
+    }
+
+    private static MockServerWebExchange exchange(final MockServerHttpRequest.BaseBuilder<?> request) {
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
         exchange.getAttributes().put(
             ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR,

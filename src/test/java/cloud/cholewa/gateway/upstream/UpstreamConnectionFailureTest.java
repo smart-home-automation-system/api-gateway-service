@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -24,6 +25,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -151,6 +155,51 @@ class UpstreamConnectionFailureTest {
         assertThat(UPSTREAM.exchanges().getFirst().requestOnConnection()).isGreaterThan(1);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"PUT", "PATCH", "DELETE"})
+    void should_not_repeat_any_other_write_either(final String method) {
+        UPSTREAM.failNext(1, Failure.RESET_BEFORE_RESPONSE);
+
+        expectUpstreamUnavailable(
+            client.method(HttpMethod.valueOf(method)).uri(PATH)
+                .contentType(MediaType.APPLICATION_JSON).bodyValue(WRITE).exchange()
+        );
+
+        assertThat(UPSTREAM.exchanges()).extracting(Exchange::method).containsExactly(method);
+        assertThat(UPSTREAM.exchanges().getFirst().requestOnConnection()).isGreaterThan(1);
+    }
+
+    //a GET may carry a body, and the gateway passes it on as it comes - once: the body of the caller
+    //cannot be read a second time. Repeated, the request went out with its Content-Length and
+    //without its body, on a connection that returned to the pool, and the target took the request of
+    //the next caller for the missing bytes. So such a GET is not repeated, and the call after it is
+    //answered as it should be. Written to a socket, because not every client sends a body with a GET
+    @Test
+    void should_not_repeat_a_read_that_carries_a_body() throws IOException {
+        UPSTREAM.failNext(1, Failure.RESET_BEFORE_RESPONSE);
+
+        String answer = rawCall(
+            "GET " + PATH + " HTTP/1.1\r\n"
+                + "Host: localhost\r\n"
+                + "Content-Type: text/plain\r\n"
+                + "Content-Length: 5\r\n"
+                + "Connection: close\r\n"
+                + "\r\n"
+                + "hello"
+        );
+
+        assertThat(answer).startsWith("HTTP/1.1 502").contains("Upstream service unavailable");
+
+        client.get().uri("/home/water/status/active")
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody(String.class).isEqualTo(StubUpstream.BODY);
+
+        assertThat(UPSTREAM.exchanges())
+            .extracting(Exchange::method, Exchange::path, Exchange::bodyLength)
+            .containsExactly(tuple("GET", PATH, 5), tuple("GET", "/home/water/status/active", 0));
+    }
+
     //the Retry filter of Spring Cloud Gateway made the gateway keep the body of every request in
     //memory, to be able to send it again. Nothing is sent again that has a body, so nothing is kept
     @Test
@@ -179,6 +228,17 @@ class UpstreamConnectionFailureTest {
             .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON);
 
         assertThat(UPSTREAM.exchanges()).extracting(Exchange::method).containsExactly("GET");
+    }
+
+    //one request written as it is, and everything the gateway answers until it closes the connection
+    private String rawCall(final String request) throws IOException {
+        try (Socket socket = new Socket(InetAddress.getLoopbackAddress(), port)) {
+            socket.setSoTimeout(20_000);
+            socket.getOutputStream().write(request.getBytes(StandardCharsets.US_ASCII));
+            socket.getOutputStream().flush();
+
+            return new String(socket.getInputStream().readAllBytes(), StandardCharsets.US_ASCII);
+        }
     }
 
     private static WebTestClient.ResponseSpec expectUpstreamUnavailable(final WebTestClient.ResponseSpec response) {
