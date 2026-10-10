@@ -1,6 +1,5 @@
 package cloud.cholewa.gateway.upstream;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -166,20 +165,17 @@ final class StubUpstream implements AutoCloseable {
 
     //the request line and the headers, or null when the other side closed the connection
     private static String readHead(final InputStream in) throws IOException {
-        ByteArrayOutputStream head = new ByteArrayOutputStream();
-        int matched = 0;
+        StringBuilder head = new StringBuilder();
 
-        while (matched < 4) {
+        while (head.length() < 4 || !"\r\n\r\n".contentEquals(head.subSequence(head.length() - 4, head.length()))) {
             int next = in.read();
             if (next < 0) {
                 return null;
             }
-            head.write(next);
-            boolean expected = next == (matched % 2 == 0 ? '\r' : '\n');
-            matched = expected ? matched + 1 : (next == '\r' ? 1 : 0);
+            head.append((char) next);
         }
 
-        return head.toString(StandardCharsets.US_ASCII);
+        return head.toString();
     }
 
     private static void skipBody(final InputStream in, final String head) throws IOException {
