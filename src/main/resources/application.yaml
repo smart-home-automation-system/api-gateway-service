@@ -19,6 +19,22 @@ spring:
             # not hold a request forever. Generous on purpose - the ai route overrides it,
             # because an OpenAI answer legitimately takes longer than any other call here
             response-timeout: 30s
+            pool:
+              # HAS-212: without a limit an idle connection stays in the pool for ever, and one
+              # that nothing has travelled on for 24 h is dead without the gateway knowing: the
+              # node forgets the address translation of a silent connection after that time
+              # (nf_conntrack_tcp_timeout_established, set by kube-proxy), so when the pod on the
+              # other side goes away its close never arrives here, and the next request on that
+              # connection is answered with a reset. Two minutes is far below that limit and above
+              # the 30 s and 60 s the dashboards poll at, so an open page keeps its connections
+              max-idle-time: 2m
+              # a connection in constant use never becomes idle; this bounds how long any one
+              # lives, so that nothing here depends on a connection lasting for days. Checked when
+              # a connection is taken, returned or swept - never in the middle of an exchange
+              max-life-time: 30m
+              # the two limits above are otherwise applied only when a request asks for a
+              # connection; the sweep closes an expired or broken one while nobody is calling
+              eviction-interval: 30s
   reactor:
     # default LIMITED restores ThreadLocals only in "tap" and "handle", so traceId would be
     # missing from the MDC of every log statement inside a reactive chain
