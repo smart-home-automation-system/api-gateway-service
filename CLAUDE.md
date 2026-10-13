@@ -24,8 +24,16 @@ When opened as part of the workspace, those rules apply here too.
   `uri(...)` is discarded, so a target mounted under a different path needs `rewritePath`, never
   a longer URI string.
 - **Several paths of one service share its route** (`database`: `/device/configuration/**`,
-  `/household`, `/household/**`) — `RoutesConfigTest` asserts exactly one route per service by id.
-  Add a path to the existing route rather than a second route to the same service.
+  `/device/registry`, `/device/registry/**`, `/household`, `/household/**`, `/calendar/**`) —
+  `RoutesConfigTest` asserts exactly one route per service by id. Add a path to the existing
+  route rather than a second route to the same service.
+- **The `database` route has open tails on purpose** (HAS-225): by path alone, every method, and
+  whatever `database-service` adds below a routed path is published with it - that service has
+  nothing to keep inside, its endpoints are what the dashboard and Bruno call. `/device` is the
+  one place listed by its branches (`configuration`, `registry`) and not as `/device/**`. A
+  pattern ending in `/**` matches the bare path too (`/calendar/**` routes `/home/calendar`), and
+  a dot segment below a tail is forwarded as it was sent - `RoutesConfigTest` pins both, so a
+  bump of the starter that changes the matching shows.
 - **An unrouted path answers "No static resource …" (404)** — that is the gateway, not the target
   service: WebFlux found no route and fell through to static resources. The first thing to check
   when a new endpoint "does not exist" from outside the cluster.
@@ -63,7 +71,9 @@ together with logbook 4.2.0, which declares apiguardian 1.1.2 itself, so the pin
 `dependencyManagement` went away. Repeated on 2026-10-11 for HAS-212 (same versions, the pool
 limits and the repetition of a read added): a stub that can reset a connection on request shows
 the two answers that matter there — a `GET` on a reset connection is 200, a `POST` 502 with a
-body.
+body. And on 2026-10-13 for HAS-225 (same versions, `cholewa-commons` 1.8.0): a stub that
+answers what it was asked, on the local port of `database-service`, shows that a new path
+arrives with its path, query and body unchanged.
 
 ## Connections to the targets — the pool (HAS-212)
 

@@ -56,6 +56,11 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/household")).isEqualTo("database");
         assertThat(matchedRouteFor("/home/household/member/Test/device")).isEqualTo("database");
         assertThat(matchedRouteFor("/home/householdx")).isNull();
+        assertThat(matchedRouteFor("/home/device/registry")).isEqualTo("database");
+        assertThat(matchedRouteFor("/home/device/registry/7")).isEqualTo("database");
+        assertThat(matchedRouteFor("/home/device/registry/7/enable")).isEqualTo("database");
+        assertThat(matchedRouteFor("/home/calendar/days")).isEqualTo("database");
+        assertThat(matchedRouteFor("/home/calendar/days-off/2026-05-04")).isEqualTo("database");
         assertThat(matchedRouteFor("/home/presence/residents/presence")).isEqualTo("presence");
         assertThat(matchedRouteFor("/home/presence/residents/Anna/report")).isEqualTo("presence");
         assertThat(matchedRouteFor("/home/presence/residents/Anna%20Maria/report")).isEqualTo("presence");
@@ -65,6 +70,60 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/amx")).isEqualTo("amx");
         assertThat(matchedRouteFor("/home/ai")).isEqualTo("ai");
         assertThat(matchedRouteFor("/home/nothing")).isNull();
+    }
+
+    //the registry and the calendar are written through the gateway as well - the route of
+    //database-service is by path alone, whatever the method
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE", "PATCH"})
+    void should_route_the_writes_of_database_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/registry")).isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/registry/7")).isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/registry/7/enable"))
+            .isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/registry/7/disable"))
+            .isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/calendar/days-off/2026-05-04"))
+            .isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/configuration/eaton"))
+            .isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/household/member/Test")).isEqualTo("database");
+    }
+
+    //The tails are open, and the pattern is matched against the path as it was sent: whatever
+    //lies below a routed path goes to database-service unchanged, a dot segment included. That
+    //service matches the same raw path and knows no such endpoint - and has none to hide
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "/home/calendar",
+        "/home/calendar/",
+        "/home/calendar/anything/below",
+        "/home/device/registry/",
+        "/home/device/registry/7/anything/below",
+        "/home/device/registry/../other"
+    })
+    void should_route_whatever_lies_below_a_path_of_database_service(final String path) {
+        assertThat(matchedRouteFor(path)).isEqualTo("database");
+    }
+
+    //the route of database-service names the branches of /device it publishes: a path next to
+    //them, or one that only begins like them, belongs to nobody
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "/home/device",
+        "/home/device/",
+        "/home/device/registryx",
+        "/home/device/registry-old/7",
+        "/home/device/configurationx/eaton",
+        "/home/device/other",
+        "/home/calendarx",
+        "/home/calendarx/days",
+        "/home/calendars/days",
+        "/home/registry",
+        "/home/days"
+    })
+    void should_route_nothing_next_to_the_paths_of_database_service(final String path) {
+        assertThat(matchedRouteFor(path)).isNull();
     }
 
     //the diagnostic endpoint of presence-service answers the MAC address of every device on the home

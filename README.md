@@ -43,10 +43,12 @@ Boot 4.0.8), so the BOM is not imported and `spring-cloud-starter-gateway-server
 pinned on its own (`spring-cloud-gateway.version`, **5.0.3**). The combination works because
 Boot 4.1.1 and 4.0.8 sit on the same Spring Framework 7.0.x line, and it is verified on every
 change — but it is outside Spring's compatibility matrix, so **re-test the gateway after any
-bump** of either version. Last re-tested on 2026-10-11 with Boot 4.1.1 and the starter 5.0.3
-(HAS-212, with the limits of the connection pool and the retry of a read): the context starts, a
-route proxies and carries `traceparent`, an unmatched path answers 404, an unreachable target 502,
-and a connection reset by the target answers 200 for a `GET` and 502 for a `POST`.
+bump** of either version. Last re-tested on 2026-10-13 with Boot 4.1.1 and the starter 5.0.3
+(HAS-225, both unchanged, `cholewa-commons` 1.8.0): the context starts, the new paths of
+`database-service` proxy with their path, query and body unchanged and carry `traceparent`, an
+unmatched path answers 404 and an unreachable target 502. The run before it (2026-10-11, HAS-212,
+with the limits of the connection pool and the retry of a read) also showed a connection reset by
+the target answering 200 for a `GET` and 502 for a `POST`.
 
 ## Run locally
 
@@ -78,6 +80,8 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/amx` | `amx-service` | `POST /home/amx` |
 | `/home/boiler/**` | `boiler-service` | `GET /home/boiler/status` |
 | `/home/device/configuration/**` | `database-service` | `GET` and `POST /home/device/configuration/eaton` — the POST writes device configuration and is unauthenticated |
+| `/home/device/registry`, `/home/device/registry/**` | `database-service` | the device registry: `GET /home/device/registry` (`?kind=&room=&enabled=`) and `GET /home/device/registry/{id}`, and its writes - `POST /home/device/registry`, `PUT` and `DELETE /home/device/registry/{id}`, `POST /home/device/registry/{id}/enable` and `.../disable`. Unauthenticated like every route here: it carries the names, rooms and LAN addresses of the devices, and a write to an Eaton device changes what `amx-service` reads for its point |
+| `/home/calendar/**` | `database-service` | the calendar of the house: `GET /home/calendar/days?from=&to=`, and the days off of the household - `PUT` and `DELETE /home/calendar/days-off/{date}` |
 | `/home/household`, `/home/household/**` | `database-service` | the household registry: `GET /home/household` and the member/device CRUD under `/home/household/member/...` — unauthenticated like every route here, and it carries members' names, phone numbers and device MACs |
 | `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating` (the `POST` switches the heating of the house), `GET /home/heating/status/active`, `GET /home/heating/temperature/sensors`, `GET /home/heating/rooms`, `GET /home/heating/rooms/{name}`, `GET /home/heating/rooms/{name}/temperature/history`, `GET /home/heating/floor-pump` |
 | `GET /home/presence/residents/presence`, `GET /home/presence/residents/{name}/report`, `GET /home/presence/residents/{name}/report/daily`, `GET /home/presence/house/report` | `presence-service` | who is at home now and, each for a range (`?from=&to=`, both required): when one resident was at home, their daily statistics, and when the house as a whole was occupied or empty — unauthenticated like every route here, and it tells when each household member is at home and when nobody is |
