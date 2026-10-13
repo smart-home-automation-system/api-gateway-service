@@ -51,6 +51,11 @@ jobs:
           GH_PRV_PASSWORD: ${{ secrets.GH_PRV_PASSWORD }}
         run: mvn -B package --file pom.xml
 
+      # The embed of sarisia/actions-status-discord without its "Event" field (the commit and
+      # its whole message): that action can only show all of the context or none of it, so the
+      # message is built here. Nothing of the workflow context is interpolated into the script -
+      # it arrives through the environment. The empty field in the middle is not inline: it keeps
+      # the four others in two rows of two, as in the embed of that action.
       - name: Discord notification
         if: always()
         env:

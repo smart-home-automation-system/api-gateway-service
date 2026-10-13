@@ -75,12 +75,35 @@ class RoutesConfigTest {
     //the registry and the calendar are written through the gateway as well - the route of
     //database-service is by path alone, whatever the method
     @ParameterizedTest
-    @ValueSource(strings = {"POST", "PUT", "DELETE"})
-    void should_route_the_writes_of_the_device_registry_and_of_the_calendar(final String method) {
+    @ValueSource(strings = {"POST", "PUT", "DELETE", "PATCH"})
+    void should_route_the_writes_of_database_service(final String method) {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/registry")).isEqualTo("database");
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/registry/7")).isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/registry/7/enable"))
+            .isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/registry/7/disable"))
+            .isEqualTo("database");
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/calendar/days-off/2026-05-04"))
             .isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/device/configuration/eaton"))
+            .isEqualTo("database");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/household/member/Test")).isEqualTo("database");
+    }
+
+    //The tails are open, and the pattern is matched against the path as it was sent: whatever
+    //lies below a routed path goes to database-service unchanged, a dot segment included. That
+    //service matches the same raw path and knows no such endpoint - and has none to hide
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "/home/calendar",
+        "/home/calendar/",
+        "/home/calendar/anything/below",
+        "/home/device/registry/",
+        "/home/device/registry/7/anything/below",
+        "/home/device/registry/../other"
+    })
+    void should_route_whatever_lies_below_a_path_of_database_service(final String path) {
+        assertThat(matchedRouteFor(path)).isEqualTo("database");
     }
 
     //the route of database-service names the branches of /device it publishes: a path next to

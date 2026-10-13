@@ -29,9 +29,10 @@ public class RoutesConfig {
             .route("amx", r -> r.path("/amx", "/amx/**").uri(uri(services.amx())))
             .route("boiler", r -> r.path("/boiler", "/boiler/**").uri(uri(services.boiler())))
             //everything database-service holds: the Eaton device configuration, the household
-            //registry, the device registry and the calendar of the house. /device is listed by its
-            //two branches and not as /device/**: what that service adds there later is routed when
-            //somebody decides it
+            //registry, the device registry and the calendar of the house. By path alone, whatever
+            //the method, and with open tails - unlike presence this service has nothing to keep
+            //inside, so what it adds below one of these paths is published with it. Only /device
+            //is listed by its two branches and not as /device/**
             .route("database", r -> r
                 .path(
                     "/device/configuration/**",
