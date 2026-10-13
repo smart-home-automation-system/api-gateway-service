@@ -28,8 +28,18 @@ public class RoutesConfig {
                 .uri(uri(services.ai())))
             .route("amx", r -> r.path("/amx", "/amx/**").uri(uri(services.amx())))
             .route("boiler", r -> r.path("/boiler", "/boiler/**").uri(uri(services.boiler())))
-            //the Eaton device configuration and the household registry - both live in database-service
-            .route("database", r -> r.path("/device/configuration/**", "/household", "/household/**")
+            //everything database-service holds: the Eaton device configuration, the household
+            //registry, the device registry and the calendar of the house. /device is listed by its
+            //two branches and not as /device/**: what that service adds there later is routed when
+            //somebody decides it
+            .route("database", r -> r
+                .path(
+                    "/device/configuration/**",
+                    "/device/registry",
+                    "/device/registry/**",
+                    "/household",
+                    "/household/**",
+                    "/calendar/**")
                 .uri(uri(services.database())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
             //an allowlist, unlike the other routes: exactly the reads of the reporting API, by path

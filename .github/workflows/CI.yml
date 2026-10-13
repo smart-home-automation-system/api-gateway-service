@@ -51,17 +51,38 @@ jobs:
           GH_PRV_PASSWORD: ${{ secrets.GH_PRV_PASSWORD }}
         run: mvn -B package --file pom.xml
 
-      - name: Discord notification -> success
-        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
-        if: ${{ success() }}
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          status: ${{ job.status }}
-          title: "CI api-gateway-service - success"
-      - name: Discord notification -> non-success
-        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
-        if: ${{ !success() }}
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          status: ${{ job.status }}
-          title: "CI api-gateway-service - failure"
+      - name: Discord notification
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          JOB_STATUS: ${{ job.status }}
+          TRIGGERED_BY: ${{ github.triggering_actor }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "No Discord webhook in this run - nothing sent"
+            exit 0
+          fi
+          case "$JOB_STATUS" in
+            success)   label="Success";   color=2664261 ;;
+            cancelled) label="Cancelled"; color=14396169 ;;
+            *)         label="Failure";   color=13313073 ;;
+          esac
+          repository_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          jq -n \
+            --arg title "$label: $GITHUB_WORKFLOW ${GITHUB_REPOSITORY#*/}" \
+            --argjson color "$color" \
+            --arg repository "[$GITHUB_REPOSITORY]($repository_url)" \
+            --arg ref "$GITHUB_REF" \
+            --arg actor "$TRIGGERED_BY" \
+            --arg workflow "[$GITHUB_WORKFLOW]($repository_url/actions/runs/$GITHUB_RUN_ID)" \
+            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{embeds: [{title: $title, color: $color, timestamp: $timestamp, fields: [
+               {name: "Repository", value: $repository, inline: true},
+               {name: "Ref", value: $ref, inline: true},
+               {name: "\u200b", value: "\u200b", inline: false},
+               {name: "Triggered by", value: $actor, inline: true},
+               {name: "Workflow", value: $workflow, inline: true}
+             ]}]}' > discord.json
+          curl --silent --show-error --fail --max-time 20 \
+            -H "Content-Type: application/json" --data @discord.json "$DISCORD_WEBHOOK" \
+            || echo "::warning::The Discord notification was not delivered"
