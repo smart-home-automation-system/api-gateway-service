@@ -131,6 +131,19 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor(path)).isEqualTo("database");
     }
 
+    //the tail of blinds is open like the one of database-service: the bare path with a slash and a
+    //dot segment below the service go to blinds-service as they were sent, which knows no such path
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "/home/blinds/",
+        "/home/blinds/anything/below",
+        "/home/blinds/../other",
+        "/home/blinds/events/gen1/"
+    })
+    void should_route_whatever_lies_below_the_path_of_blinds_service(final String path) {
+        assertThat(matchedRouteFor(path)).isEqualTo("blinds");
+    }
+
     //the route of database-service names the branches of /device it publishes: a path next to
     //them, or one that only begins like them, belongs to nobody
     @ParameterizedTest

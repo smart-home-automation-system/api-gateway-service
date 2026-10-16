@@ -78,6 +78,7 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 |---|---|---|
 | `/home/ai` | `ai-service` | `POST /home/ai` (text/plain) |
 | `/home/amx/**` | `amx-service` | the Eaton commands: `POST /home/amx/eaton/blinds/{point}`, `POST /home/amx/eaton/lights/{point}` and `.../level` - writes to the house, unauthenticated like every route here (`POST /home/amx` is gone since amx-service 2.0.0) |
+| `/home/blinds`, `/home/blinds/**` | `blinds-service` | the roller shutters: the state reads `GET /home/blinds`, `/home/blinds/rooms/{room}`, `/home/blinds/{id}`; the commands `POST /home/blinds/{id}`, `/home/blinds/{id}/position`, `/home/blinds/rooms/{room}` (writes to the house, unauthenticated like every route here); the schedules (CRUD under `/home/blinds/schedules`, `GET .../{id}/today`); and `GET /home/blinds/events/gen1?device=&event=`, the action URLs of the Gen1 rollers - a `GET` with a side effect by design, an idempotent report of a state |
 | `/home/boiler/**` | `boiler-service` | `GET /home/boiler/status` |
 | `/home/device/configuration/**` | `database-service` | `GET` and `POST /home/device/configuration/eaton` — the POST writes device configuration and is unauthenticated |
 | `/home/device/registry`, `/home/device/registry/**` | `database-service` | the device registry: `GET /home/device/registry` (`?kind=&room=&enabled=`) and `GET /home/device/registry/{id}`, and its writes - `POST /home/device/registry`, `PUT` and `DELETE /home/device/registry/{id}`, `POST /home/device/registry/{id}/enable` and `.../disable`. Unauthenticated like every route here: it carries the names, rooms and LAN addresses of the devices, and a write to an Eaton device changes what `amx-service` reads for its point |
@@ -101,6 +102,10 @@ The `weather` route is an allowlist the same way (HAS-239): the three reads, `GE
 `weather-service` has nothing secret to keep inside, but it serves reads only, and a new endpoint of
 it is published by a change here, not by a tail - a `/**` would also forward a dot segment
 (`/home/weather/../presence/clients`) as it was sent.
+
+The `blinds` route is open by path, every method (HAS-251), like `database`: the Shelly Gen1 rollers
+call their action URLs through the host-less ingress of the LAN, and the repetition of a broken read
+(below) is harmless for them - the same report of a state twice is the same state.
 
 `notification-service` is deliberately absent: its `/home/notification/skippy` endpoint has no
 external consumer and was never routed. Add a route the day something outside the cluster needs it.
