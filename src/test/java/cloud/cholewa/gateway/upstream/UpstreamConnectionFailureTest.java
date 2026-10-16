@@ -56,7 +56,7 @@ class UpstreamConnectionFailureTest {
 
     @DynamicPropertySource
     static void upstream(final DynamicPropertyRegistry registry) {
-        for (String service : List.of("ai", "amx", "boiler", "database", "heating", "presence", "water")) {
+        for (String service : List.of("ai", "amx", "boiler", "database", "heating", "presence", "water", "weather")) {
             registry.add("internal.service." + service + ".host", () -> "localhost");
             registry.add("internal.service." + service + ".port", UPSTREAM::port);
         }
@@ -110,6 +110,7 @@ class UpstreamConnectionFailureTest {
         "/home/household/profiles",
         "/home/heating/rooms",
         "/home/presence/house/report",
+        "/home/weather/current",
         PATH
     })
     void should_repeat_a_read_whose_pooled_connection_was_reset(final String path) {

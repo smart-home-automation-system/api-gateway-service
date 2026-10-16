@@ -57,6 +57,13 @@ public class RoutesConfig {
                 .and().method(HttpMethod.GET)
                 .uri(uri(services.presence())))
             .route("water", r -> r.path("/water", "/water/**").uri(uri(services.water())))
+            //an allowlist of reads, like presence (HAS-239): weather-service serves reads only, and
+            //whatever it adds later is published by a decision here, not by a /** tail - which would
+            //also forward a dot segment (weather/../presence/clients) as it was sent
+            .route("weather", r -> r
+                .path("/weather/current", "/weather/status", "/weather/history")
+                .and().method(HttpMethod.GET)
+                .uri(uri(services.weather())))
             .build();
     }
 

@@ -91,6 +91,10 @@ internal:
       scheme: http
       host: water-service
       port: 6200
+    weather:
+      scheme: http
+      host: weather-service
+      port: 6200
 
 logbook:
   format:
@@ -134,6 +138,9 @@ internal:
     water:
       host: localhost
       port: 6006
+    weather:
+      host: localhost
+      port: 6010
 
 logbook:
   format:

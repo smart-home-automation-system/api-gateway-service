@@ -19,6 +19,7 @@ public record InternalServicesConfig(
     @NotNull @Valid ServiceUri database,
     @NotNull @Valid ServiceUri heating,
     @NotNull @Valid ServiceUri presence,
-    @NotNull @Valid ServiceUri water
+    @NotNull @Valid ServiceUri water,
+    @NotNull @Valid ServiceUri weather
 ) {
 }
