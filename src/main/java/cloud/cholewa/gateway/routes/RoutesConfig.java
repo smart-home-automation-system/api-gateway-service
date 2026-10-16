@@ -44,8 +44,8 @@ public class RoutesConfig {
                 .uri(uri(services.database())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
             //an allowlist (as weather, below), unlike the other routes: exactly the reads of the
-            //reporting API, by path and method. /presence/clients lists the MAC address of every device on the home
-            //network and has to stay inside the cluster - with a /** tail a path like
+            //reporting API, by path and method. /presence/clients lists the MAC address of every
+            //device on the home network and has to stay inside the cluster - with a /** tail a path like
             //residents/../clients would match and be forwarded as it is, and whatever that service
             //adds under /residents or /house later would be published without anyone deciding it
             .route("presence", r -> r
