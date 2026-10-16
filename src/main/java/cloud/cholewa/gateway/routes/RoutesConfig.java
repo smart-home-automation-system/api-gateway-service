@@ -27,6 +27,9 @@ public class RoutesConfig {
                 .metadata(RESPONSE_TIMEOUT_ATTR, 120000L)
                 .uri(uri(services.ai())))
             .route("amx", r -> r.path("/amx", "/amx/**").uri(uri(services.amx())))
+            //reads, commands, schedules and the action URLs of the Gen1 rollers - a GET with a side effect
+            //by design (a Gen1 device can only GET), an idempotent report of a state, so a repeated one is harmless
+            .route("blinds", r -> r.path("/blinds", "/blinds/**").uri(uri(services.blinds())))
             .route("boiler", r -> r.path("/boiler", "/boiler/**").uri(uri(services.boiler())))
             //everything database-service holds: the Eaton device configuration, the household
             //registry, the device registry and the calendar of the house. By path alone, whatever

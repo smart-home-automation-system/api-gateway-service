@@ -71,6 +71,10 @@ internal:
       scheme: http
       host: amx-service
       port: 6200
+    blinds:
+      scheme: http
+      host: blinds-service
+      port: 6200
     boiler:
       scheme: http
       host: boiler-service
@@ -123,6 +127,9 @@ internal:
     amx:
       host: localhost
       port: 6001
+    blinds:
+      host: localhost
+      port: 6011
     boiler:
       host: localhost
       port: 6007
