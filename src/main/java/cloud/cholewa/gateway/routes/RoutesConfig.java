@@ -43,9 +43,9 @@ public class RoutesConfig {
                     "/calendar/**")
                 .uri(uri(services.database())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
-            //an allowlist, unlike the other routes: exactly the reads of the reporting API, by path
-            //and method. /presence/clients lists the MAC address of every device on the home
-            //network and has to stay inside the cluster - with a /** tail a path like
+            //an allowlist (as weather, below), unlike the other routes: exactly the reads of the
+            //reporting API, by path and method. /presence/clients lists the MAC address of every
+            //device on the home network and has to stay inside the cluster - with a /** tail a path like
             //residents/../clients would match and be forwarded as it is, and whatever that service
             //adds under /residents or /house later would be published without anyone deciding it
             .route("presence", r -> r
@@ -57,6 +57,13 @@ public class RoutesConfig {
                 .and().method(HttpMethod.GET)
                 .uri(uri(services.presence())))
             .route("water", r -> r.path("/water", "/water/**").uri(uri(services.water())))
+            //an allowlist of reads, like presence (HAS-239): weather-service serves reads only, and
+            //whatever it adds later is published by a decision here, not by a /** tail - which would
+            //also forward a dot segment (weather/../presence/clients) as it was sent
+            .route("weather", r -> r
+                .path("/weather/current", "/weather/status", "/weather/history")
+                .and().method(HttpMethod.GET)
+                .uri(uri(services.weather())))
             .build();
     }
 

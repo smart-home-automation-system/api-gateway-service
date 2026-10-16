@@ -37,7 +37,7 @@ When opened as part of the workspace, those rules apply here too.
 - **An unrouted path answers "No static resource …" (404)** — that is the gateway, not the target
   service: WebFlux found no route and fell through to static resources. The first thing to check
   when a new endpoint "does not exist" from outside the cluster.
-- **`presence` is an allowlist, unlike the other routes:** exactly
+- **`presence` is an allowlist (so is `weather`, below), unlike the other routes:** exactly
   `GET /presence/residents/presence`, `GET /presence/residents/{name}/report`,
   `GET /presence/residents/{name}/report/daily` and `GET /presence/house/report`.
   `presence-service` also serves `GET /home/presence/clients`, which lists the MAC address of
@@ -47,6 +47,12 @@ When opened as part of the workspace, those rules apply here too.
   service adds under `/residents` or `/house` would be published silently. `RoutesConfigTest` asserts the
   paths and methods that must match nothing. A new endpoint of that service gets its own entry —
   check first what it exposes.
+- **`weather` is an allowlist too** (HAS-239): `GET /weather/current`, `/weather/status`,
+  `/weather/history`. weather-service serves reads only; a new endpoint of it needs an entry here
+  (and a release of the gateway), and a dot segment below the service is never forwarded -
+  `RoutesConfigTest` pins the near misses (`weather/../presence/clients` among them) and the
+  writes. Re-tested on 2026-10-16 with a stub on 6010 (Boot 4.1.1, starter 5.0.3, `cholewa-commons`
+  1.9.0): the three reads arrive unchanged, a `POST` and the dot segment are 404 at the gateway.
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external

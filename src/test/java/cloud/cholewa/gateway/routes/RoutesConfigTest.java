@@ -39,7 +39,8 @@ class RoutesConfigTest {
             "database", "http://database-service:6200",
             "heating", "http://heating-service:6200",
             "presence", "http://presence-service:6200",
-            "water", "http://water-service:6200"
+            "water", "http://water-service:6200",
+            "weather", "http://weather-service:6200"
         ));
     }
 
@@ -69,6 +70,9 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/presence/house/report")).isEqualTo("presence");
         assertThat(matchedRouteFor("/home/amx")).isEqualTo("amx");
         assertThat(matchedRouteFor("/home/ai")).isEqualTo("ai");
+        assertThat(matchedRouteFor("/home/weather/current")).isEqualTo("weather");
+        assertThat(matchedRouteFor("/home/weather/status")).isEqualTo("weather");
+        assertThat(matchedRouteFor("/home/weather/history")).isEqualTo("weather");
         assertThat(matchedRouteFor("/home/nothing")).isNull();
     }
 
@@ -124,6 +128,33 @@ class RoutesConfigTest {
     })
     void should_route_nothing_next_to_the_paths_of_database_service(final String path) {
         assertThat(matchedRouteFor(path)).isNull();
+    }
+
+    //the reads of weather-service and nothing else: no other path of that service, no tail, no dot
+    //segment that would be forwarded as it was sent (weather/../presence/clients)
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "/home/weather",
+        "/home/weather/",
+        "/home/weather/currentx",
+        "/home/weather/current/",
+        "/home/weather/current/x",
+        "/home/weather/history/x",
+        "/home/weather/../presence/clients",
+        "/home/weather/current/../../presence/clients",
+        "/home/weather/..%2fpresence/clients",
+        "/home/weather/actuator/health"
+    })
+    void should_route_nothing_of_weather_service_but_its_reads(final String path) {
+        assertThat(matchedRouteFor(path)).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE", "PATCH"})
+    void should_route_only_reads_to_weather_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/weather/current")).isNull();
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/weather/status")).isNull();
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/weather/history")).isNull();
     }
 
     //the diagnostic endpoint of presence-service answers the MAC address of every device on the home
