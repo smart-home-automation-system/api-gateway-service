@@ -77,7 +77,7 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | Path | Target | Endpoints behind it |
 |---|---|---|
 | `/home/ai` | `ai-service` | `POST /home/ai` (text/plain) |
-| `/home/amx` | `amx-service` | `POST /home/amx` |
+| `/home/amx/**` | `amx-service` | the Eaton commands: `POST /home/amx/eaton/blinds/{point}`, `POST /home/amx/eaton/lights/{point}` and `.../level` - writes to the house, unauthenticated like every route here (`POST /home/amx` is gone since amx-service 2.0.0) |
 | `/home/boiler/**` | `boiler-service` | `GET /home/boiler/status` |
 | `/home/device/configuration/**` | `database-service` | `GET` and `POST /home/device/configuration/eaton` — the POST writes device configuration and is unauthenticated |
 | `/home/device/registry`, `/home/device/registry/**` | `database-service` | the device registry: `GET /home/device/registry` (`?kind=&room=&enabled=`) and `GET /home/device/registry/{id}`, and its writes - `POST /home/device/registry`, `PUT` and `DELETE /home/device/registry/{id}`, `POST /home/device/registry/{id}/enable` and `.../disable`. Unauthenticated like every route here: it carries the names, rooms and LAN addresses of the devices, and a write to an Eaton device changes what `amx-service` reads for its point |
@@ -86,6 +86,7 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating` (the `POST` switches the heating of the house), `GET /home/heating/status/active`, `GET /home/heating/temperature/sensors`, `GET /home/heating/rooms`, `GET /home/heating/rooms/{name}`, `GET /home/heating/rooms/{name}/temperature/history`, `GET /home/heating/floor-pump` |
 | `GET /home/presence/residents/presence`, `GET /home/presence/residents/{name}/report`, `GET /home/presence/residents/{name}/report/daily`, `GET /home/presence/house/report` | `presence-service` | who is at home now and, each for a range (`?from=&to=`, both required): when one resident was at home, their daily statistics, and when the house as a whole was occupied or empty — unauthenticated like every route here, and it tells when each household member is at home and when nobody is |
 | `/home/water/**` | `water-service` | `GET /home/water/status/{active,temperature}`, `GET /home/water/temperature/history` |
+| `GET /home/weather/current`, `GET /home/weather/status`, `GET /home/weather/history` | `weather-service` | the weather station: the current value of each metric, how the station and its gateway are heard, and the history of one metric (`?metric=&from=&to=`) |
 
 Hosts and ports come from the `internal.service.*` group: k8s DNS names on 6200 in the cluster,
 `localhost` with each service's own port locally.
@@ -95,6 +96,11 @@ narrower than its service: `GET /home/presence/clients`, a diagnostic endpoint l
 address of every device on the home network, is **not** routed and answers 404 here, and so does
 anything that service adds later until it is listed. Do not widen the predicate to
 `/presence/**`, `/presence/residents/**` or `/presence/house/**`.
+
+The `weather` route is an allowlist the same way (HAS-239): the three reads, `GET` only.
+`weather-service` has nothing secret to keep inside, but it serves reads only, and a new endpoint of
+it is published by a change here, not by a tail - a `/**` would also forward a dot segment
+(`/home/weather/../presence/clients`) as it was sent.
 
 `notification-service` is deliberately absent: its `/home/notification/skippy` endpoint has no
 external consumer and was never routed. Add a route the day something outside the cluster needs it.
