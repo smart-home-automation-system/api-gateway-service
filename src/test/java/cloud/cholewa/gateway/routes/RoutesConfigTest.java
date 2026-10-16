@@ -35,6 +35,7 @@ class RoutesConfigTest {
         assertThat(targets).containsExactlyInAnyOrderEntriesOf(Map.of(
             "ai", "http://ai-service:6200",
             "amx", "http://amx-service:6200",
+            "blinds", "http://blinds-service:6200",
             "boiler", "http://boiler-service:6200",
             "database", "http://database-service:6200",
             "heating", "http://heating-service:6200",
@@ -73,7 +74,27 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/weather/current")).isEqualTo("weather");
         assertThat(matchedRouteFor("/home/weather/status")).isEqualTo("weather");
         assertThat(matchedRouteFor("/home/weather/history")).isEqualTo("weather");
+        assertThat(matchedRouteFor("/home/blinds")).isEqualTo("blinds");
+        assertThat(matchedRouteFor("/home/blinds/rooms/office")).isEqualTo("blinds");
+        assertThat(matchedRouteFor("/home/blinds/52")).isEqualTo("blinds");
+        assertThat(matchedRouteFor("/home/blinds/events/gen1?device=52&event=open")).isEqualTo("blinds");
+        assertThat(matchedRouteFor("/home/blinds/schedules")).isEqualTo("blinds");
+        assertThat(matchedRouteFor("/home/blinds/schedules/3/today")).isEqualTo("blinds");
+        assertThat(matchedRouteFor("/home/blindsx")).isNull();
         assertThat(matchedRouteFor("/home/nothing")).isNull();
+    }
+
+    //blinds-service is commanded and its schedules are written through the gateway - by path alone,
+    //whatever the method
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE"})
+    void should_route_the_writes_of_blinds_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/52")).isEqualTo("blinds");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/52/position")).isEqualTo("blinds");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/rooms/office")).isEqualTo("blinds");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/schedules")).isEqualTo("blinds");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/schedules/3")).isEqualTo("blinds");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/schedules/3/enable")).isEqualTo("blinds");
     }
 
     //the registry and the calendar are written through the gateway as well - the route of

@@ -15,6 +15,7 @@ import org.springframework.validation.annotation.Validated;
 public record InternalServicesConfig(
     @NotNull @Valid ServiceUri ai,
     @NotNull @Valid ServiceUri amx,
+    @NotNull @Valid ServiceUri blinds,
     @NotNull @Valid ServiceUri boiler,
     @NotNull @Valid ServiceUri database,
     @NotNull @Valid ServiceUri heating,
