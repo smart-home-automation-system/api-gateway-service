@@ -85,6 +85,7 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/calendar/**` | `database-service` | the calendar of the house: `GET /home/calendar/days?from=&to=`, and the days off of the household - `PUT` and `DELETE /home/calendar/days-off/{date}` |
 | `/home/household`, `/home/household/**` | `database-service` | the household registry: `GET /home/household` and the member/device CRUD under `/home/household/member/...` — unauthenticated like every route here, and it carries members' names, phone numbers and device MACs |
 | `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating` (the `POST` switches the heating of the house), `GET /home/heating/status/active`, `GET /home/heating/temperature/sensors`, `GET /home/heating/rooms`, `GET /home/heating/rooms/{name}`, `GET /home/heating/rooms/{name}/temperature/history`, `GET /home/heating/floor-pump` |
+| `/home/light`, `/home/light/**` | `light-service` | the lights: the state reads `GET /home/light`, `/home/light/rooms/{room}`, `/home/light/{id}`, the occupancy `GET /home/light/rooms/{room}/occupancy`; the commands `POST /home/light/{id}`, `/{id}/brightness`, `/{id}/color`, `/home/light/rooms/{room}` (writes to the house, unauthenticated like every route here); and `GET /home/light/events/gen1?device=&event=`, the action URLs of the Gen1 lights and of a Shelly Motion - a `GET` with a side effect by design, an idempotent report of a state |
 | `GET /home/presence/residents/presence`, `GET /home/presence/residents/{name}/report`, `GET /home/presence/residents/{name}/report/daily`, `GET /home/presence/house/report` | `presence-service` | who is at home now and, each for a range (`?from=&to=`, both required): when one resident was at home, their daily statistics, and when the house as a whole was occupied or empty — unauthenticated like every route here, and it tells when each household member is at home and when nobody is |
 | `/home/water/**` | `water-service` | `GET /home/water/status/{active,temperature}`, `GET /home/water/temperature/history` |
 | `GET /home/weather/current`, `GET /home/weather/status`, `GET /home/weather/history` | `weather-service` | the weather station: the current value of each metric, how the station and its gateway are heard, and the history of one metric (`?metric=&from=&to=`) |
@@ -106,6 +107,9 @@ it is published by a change here, not by a tail - a `/**` would also forward a d
 The `blinds` route is open by path, every method (HAS-251), like `database`: the Shelly Gen1 rollers
 call their action URLs through the host-less ingress of the LAN, and the repetition of a broken read
 (below) is harmless for them - the same report of a state twice is the same state.
+
+The `light` route is open the same way (HAS-265): the Gen1 lights and the Shelly Motion of the house call
+their action URLs through the host-less ingress, and a repeated broken read is just as harmless for them.
 
 `notification-service` is deliberately absent: its `/home/notification/skippy` endpoint has no
 external consumer and was never routed. Add a route the day something outside the cluster needs it.
