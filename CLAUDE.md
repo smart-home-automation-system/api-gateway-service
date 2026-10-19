@@ -56,11 +56,10 @@ When opened as part of the workspace, those rules apply here too.
 - **`blinds` is open by path, every method** (HAS-251): `/blinds` and `/blinds/**` - the reads, the
   commands, the schedules and the action URLs of the Gen1 rollers, which reach the gateway from the
   devices on the LAN through the host-less ingress. `GET /home/blinds/events/gen1?device=&event=` is
-  **the one `GET` with a side effect behind this gateway, by design**: a Shelly Gen1 can only call a
-  URL with `GET`, and what it calls is an idempotent report of a state (`open`, `close`, `stop`), so
-  the repetition of a read below is harmless for it - the same report twice is the same state. The
-  same holds for the action URLs of light-service when it comes; anything else with a side effect
-  stays off `GET`. Re-tested on 2026-10-16 with a stub on 6011 (Boot 4.1.1, starter 5.0.3,
+  **a `GET` with a side effect behind this gateway, by design** (with the one of `light`, below): a
+  Shelly Gen1 can only call a URL with `GET`, and what it calls is an idempotent report of a state
+  (`open`, `close`, `stop`), so the repetition of a read below is harmless for it - the same report
+  twice is the same state. Anything else with a side effect stays off `GET`. Re-tested on 2026-10-16 with a stub on 6011 (Boot 4.1.1, starter 5.0.3,
   `cholewa-commons` 1.9.0): reads, the Gen1 event with its query, a `POST`/`PUT` with its body and a
   `DELETE` arrive unchanged, `/home/blindsx` is 404, a stopped target a 502 on route `[blinds]`.
 - **`light` is open by path, every method** (HAS-265), the way `blinds` is: `/light` and `/light/**` -
