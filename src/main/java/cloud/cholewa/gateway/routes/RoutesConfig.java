@@ -46,6 +46,9 @@ public class RoutesConfig {
                     "/calendar/**")
                 .uri(uri(services.database())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
+            //reads, commands and the action URLs of the Gen1 lights and of a Shelly Motion - a GET with a side
+            //effect by design, as for blinds (a Gen1 device can only GET), an idempotent report of a state
+            .route("light", r -> r.path("/light", "/light/**").uri(uri(services.light())))
             //an allowlist (as weather, below), unlike the other routes: exactly the reads of the
             //reporting API, by path and method. /presence/clients lists the MAC address of every
             //device on the home network and has to stay inside the cluster - with a /** tail a path like

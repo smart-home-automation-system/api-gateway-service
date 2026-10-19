@@ -39,6 +39,7 @@ class RoutesConfigTest {
             "boiler", "http://boiler-service:6200",
             "database", "http://database-service:6200",
             "heating", "http://heating-service:6200",
+            "light", "http://light-service:6200",
             "presence", "http://presence-service:6200",
             "water", "http://water-service:6200",
             "weather", "http://weather-service:6200"
@@ -81,6 +82,13 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/blinds/schedules")).isEqualTo("blinds");
         assertThat(matchedRouteFor("/home/blinds/schedules/3/today")).isEqualTo("blinds");
         assertThat(matchedRouteFor("/home/blindsx")).isNull();
+        assertThat(matchedRouteFor("/home/light")).isEqualTo("light");
+        assertThat(matchedRouteFor("/home/light/rooms/office")).isEqualTo("light");
+        assertThat(matchedRouteFor("/home/light/rooms/office/occupancy")).isEqualTo("light");
+        assertThat(matchedRouteFor("/home/light/45")).isEqualTo("light");
+        assertThat(matchedRouteFor("/home/light/events/gen1?device=90&event=on")).isEqualTo("light");
+        assertThat(matchedRouteFor("/home/light/events/gen1?device=97&event=motion&lux=10")).isEqualTo("light");
+        assertThat(matchedRouteFor("/home/lightx")).isNull();
         assertThat(matchedRouteFor("/home/nothing")).isNull();
     }
 
@@ -95,6 +103,16 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/schedules")).isEqualTo("blinds");
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/schedules/3")).isEqualTo("blinds");
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/blinds/schedules/3/enable")).isEqualTo("blinds");
+    }
+
+    //light-service is commanded through the gateway - by path alone, whatever the method (HAS-265)
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE"})
+    void should_route_the_writes_of_light_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/light/45")).isEqualTo("light");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/light/45/brightness")).isEqualTo("light");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/light/89/color")).isEqualTo("light");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/light/rooms/office")).isEqualTo("light");
     }
 
     //the registry and the calendar are written through the gateway as well - the route of
@@ -142,6 +160,18 @@ class RoutesConfigTest {
     })
     void should_route_whatever_lies_below_the_path_of_blinds_service(final String path) {
         assertThat(matchedRouteFor(path)).isEqualTo("blinds");
+    }
+
+    //the tail of light is open like the one of blinds: what lies below goes to light-service as it was sent
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "/home/light/",
+        "/home/light/anything/below",
+        "/home/light/../other",
+        "/home/light/events/gen1/"
+    })
+    void should_route_whatever_lies_below_the_path_of_light_service(final String path) {
+        assertThat(matchedRouteFor(path)).isEqualTo("light");
     }
 
     //the route of database-service names the branches of /device it publishes: a path next to
