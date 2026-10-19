@@ -63,6 +63,14 @@ When opened as part of the workspace, those rules apply here too.
   stays off `GET`. Re-tested on 2026-10-16 with a stub on 6011 (Boot 4.1.1, starter 5.0.3,
   `cholewa-commons` 1.9.0): reads, the Gen1 event with its query, a `POST`/`PUT` with its body and a
   `DELETE` arrive unchanged, `/home/blindsx` is 404, a stopped target a 502 on route `[blinds]`.
+- **`light` is open by path, every method** (HAS-265), the way `blinds` is: `/light` and `/light/**` -
+  the state and occupancy reads, the commands, and `GET /home/light/events/gen1?device=&event=` - the
+  action URLs of the Gen1 lights (`on` / `off`) and of a Shelly Motion (`motion` / `motion_end`, with
+  an optional `lux`), the second `GET` with a side effect by design: an idempotent report of a
+  state, harmless under the repetition of a broken read. Re-tested on 2026-10-19 with a stub on 6012
+  (Boot 4.1.1, starter 5.0.3, `cholewa-commons` 1.9.0): a read, the Gen1 event with its query, a
+  `POST` with its body and a `DELETE` arrive unchanged, `/home/lightx` is 404, a stopped target a
+  502 on route `[light]`.
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external
@@ -145,8 +153,8 @@ arrives with its path, query and body unchanged.
   `NettyWriteResponseFilter` and `GatewayMetricsFilter`: nothing is repeated once an answer is
   being written, and a repeated request is timed as one — asserted on the beans' orders.
 - **Every `GET` behind the gateway therefore has to stay a read.** A service that puts a side
-  effect behind a `GET` gets it twice now and then. The one exception is the action URL of a Gen1
-  device (`/blinds/events/gen1`, see Routes): an idempotent report of a state.
+  effect behind a `GET` gets it twice now and then. The exceptions are the action URLs of the Gen1
+  devices (`/blinds/events/gen1`, `/light/events/gen1`, see Routes): an idempotent report of a state.
 
 ## Errors
 

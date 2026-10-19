@@ -87,6 +87,10 @@ internal:
       scheme: http
       host: heating-service
       port: 6200
+    light:
+      scheme: http
+      host: light-service
+      port: 6200
     presence:
       scheme: http
       host: presence-service
@@ -139,6 +143,9 @@ internal:
     heating:
       host: localhost
       port: 6002
+    light:
+      host: localhost
+      port: 6012
     presence:
       host: localhost
       port: 6009
