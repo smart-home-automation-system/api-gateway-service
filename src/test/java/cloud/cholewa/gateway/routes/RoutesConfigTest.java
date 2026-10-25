@@ -32,17 +32,18 @@ class RoutesConfigTest {
             .stream()
             .collect(Collectors.toMap(Route::getId, route -> route.getUri().toString()));
 
-        assertThat(targets).containsExactlyInAnyOrderEntriesOf(Map.of(
-            "ai", "http://ai-service:6200",
-            "amx", "http://amx-service:6200",
-            "blinds", "http://blinds-service:6200",
-            "boiler", "http://boiler-service:6200",
-            "database", "http://database-service:6200",
-            "heating", "http://heating-service:6200",
-            "light", "http://light-service:6200",
-            "presence", "http://presence-service:6200",
-            "water", "http://water-service:6200",
-            "weather", "http://weather-service:6200"
+        assertThat(targets).containsExactlyInAnyOrderEntriesOf(Map.ofEntries(
+            Map.entry("ai", "http://ai-service:6200"),
+            Map.entry("amx", "http://amx-service:6200"),
+            Map.entry("appliance", "http://appliance-service:6200"),
+            Map.entry("blinds", "http://blinds-service:6200"),
+            Map.entry("boiler", "http://boiler-service:6200"),
+            Map.entry("database", "http://database-service:6200"),
+            Map.entry("heating", "http://heating-service:6200"),
+            Map.entry("light", "http://light-service:6200"),
+            Map.entry("presence", "http://presence-service:6200"),
+            Map.entry("water", "http://water-service:6200"),
+            Map.entry("weather", "http://weather-service:6200")
         ));
     }
 
@@ -89,6 +90,13 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/light/events/gen1?device=90&event=on")).isEqualTo("light");
         assertThat(matchedRouteFor("/home/light/events/gen1?device=97&event=motion&lux=10")).isEqualTo("light");
         assertThat(matchedRouteFor("/home/lightx")).isNull();
+        assertThat(matchedRouteFor("/home/appliance")).isEqualTo("appliance");
+        assertThat(matchedRouteFor("/home/appliance/133")).isEqualTo("appliance");
+        assertThat(matchedRouteFor("/home/appliance/133/runs?from=2026-10-25T00:00:00&to=2026-10-26T00:00:00"))
+            .isEqualTo("appliance");
+        assertThat(matchedRouteFor("/home/appliance/133/samples?from=2026-10-25T00:00:00&to=2026-10-26T00:00:00"))
+            .isEqualTo("appliance");
+        assertThat(matchedRouteFor("/home/appliancex")).isNull();
         assertThat(matchedRouteFor("/home/nothing")).isNull();
     }
 
@@ -113,6 +121,13 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/light/45/brightness")).isEqualTo("light");
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/light/89/color")).isEqualTo("light");
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/light/rooms/office")).isEqualTo("light");
+    }
+
+    //a finished cycle is acknowledged through the gateway (HAS-279) - by path alone, whatever the method
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE"})
+    void should_route_the_writes_of_appliance_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/appliance/133/acknowledge")).isEqualTo("appliance");
     }
 
     //the registry and the calendar are written through the gateway as well - the route of

@@ -71,6 +71,10 @@ internal:
       scheme: http
       host: amx-service
       port: 6200
+    appliance:
+      scheme: http
+      host: appliance-service
+      port: 6200
     blinds:
       scheme: http
       host: blinds-service
@@ -131,6 +135,9 @@ internal:
     amx:
       host: localhost
       port: 6001
+    appliance:
+      host: localhost
+      port: 6013
     blinds:
       host: localhost
       port: 6011
