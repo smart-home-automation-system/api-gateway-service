@@ -3,7 +3,7 @@
 `cloud.cholewa:api-gateway-service` — Spring Cloud Gateway at the edge of the cluster: the k8s
 ingress forwards all of `/home` here, and static routes fan out to the internal services over
 k8s DNS. It is the **only** way into the cluster from outside, and where every external request's
-trace starts. Reactive (WebFlux), Java 21, Spring Boot 4.1.1, Maven. Port **6200** (Actuator
+trace starts. Reactive (WebFlux), Java 21, Spring Boot 4.1.2, Maven. Port **6200** (Actuator
 **8200**) locally and in the cluster alike. Docker image `magikabdul/api-gateway-service`; the pom
 keeps `0.0.1-SNAPSHOT`, the released version comes from the git tag.
 
@@ -70,6 +70,12 @@ When opened as part of the workspace, those rules apply here too.
   (Boot 4.1.1, starter 5.0.3, `cholewa-commons` 1.9.0): a read, the Gen1 event with its query, a
   `POST` with its body and a `DELETE` arrive unchanged, `/home/lightx` is 404, a stopped target a
   502 on route `[light]`.
+- **`appliance` is open by path, every method** (HAS-281): `/appliance` and `/appliance/**` - the reads of
+  appliance-service (the appliances, their cycles and samples) and `POST /appliance/{id}/acknowledge`, the
+  acknowledgement of a finished cycle (HAS-279); that service has nothing to keep inside. Re-tested on
+  2026-10-25 with an echo stub on 6013 (Boot 4.1.2, starter 5.0.4, `cholewa-commons` 1.12.0): a read with its
+  query, a `POST` with a UTF-8 body and one of 300 KB, a `DELETE` arrive unchanged, `/home/appliance` is
+  routed and `/home/appliancex` is 404, a stopped target a 502 with its body on route `[appliance]`.
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external
@@ -82,8 +88,8 @@ When opened as part of the workspace, those rules apply here too.
 ## Spring Cloud on Boot 4.1 — accepted risk
 
 No Spring Cloud release train targets Boot 4.1, so the BOM is not imported and
-`spring-cloud-starter-gateway-server-webflux` is pinned on its own (**5.0.3**, from the 2025.1.3
-train, itself built against Boot 4.0.8). It works because Boot 4.1.1 and 4.0.8 share Spring
+`spring-cloud-starter-gateway-server-webflux` is pinned on its own (**5.0.4**, built against Boot 4.0.9 -
+Maven Central, 2026-10-25). It works because Boot 4.1.2 and 4.0.9 share Spring
 Framework 7.0.x, but it sits outside Spring's compatibility matrix —
 **re-test the gateway (context up, a route proxies, an unmatched path 404s) after any bump** of
 Boot or the gateway starter, and drop the pin the day a Boot 4.1 train ships.
@@ -216,9 +222,13 @@ things to keep when touching it:
 
 ## Tracing and logging
 
-The trace starts here (Micrometer Tracing with Brave, no exporter — `traceId` lives in the JSON
-logs). Logbook's own lines never carry `traceId`, so for plainly proxied traffic the gateway
-contributes the id but no log line of its own.
+The trace starts here (Micrometer Tracing with Brave, no exporter - `traceId` lives in the JSON
+logs). Since `cholewa-commons` 1.10.0 (taken with HAS-281) Logbook runs as a WebFilter in the reactive chain
+(`logbook.reactive.server-mode: web-filter`, the default of the library), so its `Incoming Request` /
+`Outgoing Response` lines carry the `traceId` of the request; the actuator stays out of the log (1.10.1).
+The proxied call itself goes through the own HttpClient of the gateway and is not logged by Logbook.
+At the start Hibernate Validator 9.1 warns `HV000271` about `@Valid` on `GatewayProperties.routes` of the
+starter - a deprecation in Spring Cloud, not in this code, harmless.
 
 ## Build & CI/CD
 

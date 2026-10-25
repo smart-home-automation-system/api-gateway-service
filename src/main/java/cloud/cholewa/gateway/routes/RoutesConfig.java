@@ -27,6 +27,9 @@ public class RoutesConfig {
                 .metadata(RESPONSE_TIMEOUT_ATTR, 120000L)
                 .uri(uri(services.ai())))
             .route("amx", r -> r.path("/amx", "/amx/**").uri(uri(services.amx())))
+            //the appliances, their cycles and samples, and the acknowledgement of a finished cycle (HAS-279) - by
+            //path, every method; appliance-service has nothing to keep inside
+            .route("appliance", r -> r.path("/appliance", "/appliance/**").uri(uri(services.appliance())))
             //reads, commands, schedules and the action URLs of the Gen1 rollers - a GET with a side effect
             //by design (a Gen1 device can only GET), an idempotent report of a state, so a repeated one is harmless
             .route("blinds", r -> r.path("/blinds", "/blinds/**").uri(uri(services.blinds())))

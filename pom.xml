@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.1</version>
+		<version>4.1.2</version>
 		<relativePath/>
 		<!-- lookup parent from repository -->
 	</parent>
@@ -31,10 +31,10 @@
 		     against Boot 4.0.8), so the BOM is gone and the starter is pinned on its own. The
 		     pairing holds because Boot 4.1.1 and 4.0.8 sit on the same Spring Framework 7.0.x -
 		     verified by hand, but outside Spring's compatibility matrix: re-test on every bump -->
-		<spring-cloud-gateway.version>5.0.3</spring-cloud-gateway.version>
+		<spring-cloud-gateway.version>5.0.4</spring-cloud-gateway.version>
 
 		<!--  internal dependencies versions-->
-		<cholewa-commons.version>1.9.0</cholewa-commons.version>
+		<cholewa-commons.version>1.12.0</cholewa-commons.version>
 
 		<!--  plugins versions-->
 		<maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
