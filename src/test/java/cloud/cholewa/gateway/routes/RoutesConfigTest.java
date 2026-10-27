@@ -39,6 +39,7 @@ class RoutesConfigTest {
             Map.entry("blinds", "http://blinds-service:6200"),
             Map.entry("boiler", "http://boiler-service:6200"),
             Map.entry("database", "http://database-service:6200"),
+            Map.entry("energy", "http://energy-service:6200"),
             Map.entry("heating", "http://heating-service:6200"),
             Map.entry("light", "http://light-service:6200"),
             Map.entry("presence", "http://presence-service:6200"),
@@ -97,6 +98,9 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/appliance/133/samples?from=2026-10-25T00:00:00&to=2026-10-26T00:00:00"))
             .isEqualTo("appliance");
         assertThat(matchedRouteFor("/home/appliancex")).isNull();
+        assertThat(matchedRouteFor("/home/energy")).isEqualTo("energy");
+        assertThat(matchedRouteFor("/home/energy/status")).isEqualTo("energy");
+        assertThat(matchedRouteFor("/home/energyx")).isNull();
         assertThat(matchedRouteFor("/home/nothing")).isNull();
     }
 
@@ -128,6 +132,13 @@ class RoutesConfigTest {
     @ValueSource(strings = {"POST", "PUT", "DELETE"})
     void should_route_the_writes_of_appliance_service(final String method) {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/appliance/133/acknowledge")).isEqualTo("appliance");
+    }
+
+    //the commands of the energy tasks (the battery, HAS-336) go through the gateway - by path alone, whatever the method
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE"})
+    void should_route_the_writes_of_energy_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/energy/status")).isEqualTo("energy");
     }
 
     //the registry and the calendar are written through the gateway as well - the route of

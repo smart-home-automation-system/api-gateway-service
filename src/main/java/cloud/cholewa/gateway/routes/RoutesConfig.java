@@ -48,6 +48,9 @@ public class RoutesConfig {
                     "/household/**",
                     "/calendar/**")
                 .uri(uri(services.database())))
+            //the energy of the house (HAS-325): the status of its sources, and what the energy tasks add - the
+            //readings, the balance, the commands of the battery; by path, every method, as appliance
+            .route("energy", r -> r.path("/energy", "/energy/**").uri(uri(services.energy())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
             //reads, commands and the action URLs of the Gen1 lights and of a Shelly Motion - a GET with a side
             //effect by design, as for blinds (a Gen1 device can only GET), an idempotent report of a state

@@ -87,6 +87,10 @@ internal:
       scheme: http
       host: database-service
       port: 6200
+    energy:
+      scheme: http
+      host: energy-service
+      port: 6200
     heating:
       scheme: http
       host: heating-service
@@ -147,6 +151,9 @@ internal:
     database:
       host: localhost
       port: 6005
+    energy:
+      host: localhost
+      port: 6014
     heating:
       host: localhost
       port: 6002
