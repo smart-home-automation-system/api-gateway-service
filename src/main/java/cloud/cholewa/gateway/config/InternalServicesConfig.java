@@ -19,6 +19,7 @@ public record InternalServicesConfig(
     @NotNull @Valid ServiceUri blinds,
     @NotNull @Valid ServiceUri boiler,
     @NotNull @Valid ServiceUri database,
+    @NotNull @Valid ServiceUri energy,
     @NotNull @Valid ServiceUri heating,
     @NotNull @Valid ServiceUri light,
     @NotNull @Valid ServiceUri presence,

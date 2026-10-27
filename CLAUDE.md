@@ -76,6 +76,11 @@ When opened as part of the workspace, those rules apply here too.
   2026-10-25 with an echo stub on 6013 (Boot 4.1.2, starter 5.0.4, `cholewa-commons` 1.12.0): a read with its
   query, a `POST` with a UTF-8 body and one of 300 KB, a `DELETE` arrive unchanged, `/home/appliance` is
   routed and `/home/appliancex` is 404, a stopped target a 502 with its body on route `[appliance]`.
+- **`energy` is open by path, every method** (HAS-325): `/energy` and `/energy/**` - energy-service (epic
+  HAS-324): today `GET /energy/status`, later its readings, the balance and the commands of the battery
+  (HAS-336); that service has nothing to keep inside. Checked on 2026-10-27 with the jar of energy-service
+  on 6014 (no bump, Boot 4.1.2, starter 5.0.4, `cholewa-commons` 1.12.0): `GET /home/energy/status` answers
+  through the gateway with `traceparent`, a `POST` reaches the service (its 405), `/home/energyx` is 404.
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external
