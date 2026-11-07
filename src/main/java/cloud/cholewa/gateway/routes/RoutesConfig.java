@@ -26,6 +26,9 @@ public class RoutesConfig {
             .route("ai", r -> r.path("/ai", "/ai/**")
                 .metadata(RESPONSE_TIMEOUT_ATTR, 120000L)
                 .uri(uri(services.ai())))
+            //the air conditioners of the house (HAS-379, epic HAS-376): their state and their commands - by path,
+            //every method, as energy; until aircon-service is deployed the route answers 502 with a body
+            .route("aircon", r -> r.path("/aircon", "/aircon/**").uri(uri(services.aircon())))
             .route("amx", r -> r.path("/amx", "/amx/**").uri(uri(services.amx())))
             //the appliances, their cycles and samples, and the acknowledgement of a finished cycle (HAS-279) - by
             //path, every method; appliance-service has nothing to keep inside

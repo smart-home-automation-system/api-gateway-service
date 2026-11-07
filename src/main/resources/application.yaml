@@ -67,6 +67,10 @@ internal:
       scheme: http
       host: ai-service
       port: 6200
+    aircon:
+      scheme: http
+      host: aircon-service
+      port: 6200
     amx:
       scheme: http
       host: amx-service
@@ -136,6 +140,9 @@ internal:
     ai:
       host: localhost
       port: 6004
+    aircon:
+      host: localhost
+      port: 6015
     amx:
       host: localhost
       port: 6001
