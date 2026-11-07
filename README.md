@@ -43,10 +43,11 @@ against Boot 4.0.9), so the BOM is not imported and `spring-cloud-starter-gatewa
 pinned on its own (`spring-cloud-gateway.version`, **5.0.4**). The combination works because
 Boot 4.1.2 and 4.0.9 sit on the same Spring Framework 7.0.x line, and it is verified on every
 change — but it is outside Spring's compatibility matrix, so **re-test the gateway after any
-bump** of either version. Last re-tested on 2026-10-25 with Boot 4.1.2, the starter 5.0.4 and
-`cholewa-commons` 1.12.0 (HAS-281): the context starts, the `appliance` route proxies a read with its
+bump** of either version. Last re-tested on 2026-11-07 with Boot 4.1.2, the starter 5.0.4 and
+`cholewa-commons` 1.13.0 (HAS-379): the context starts, the `aircon` route proxies a read with its
 query, a `POST` with a UTF-8 body and one of 300 KB and a `DELETE` unchanged with `traceparent`, an
-unmatched path answers 404 and an unreachable target 502 with a body. The run before it (2026-10-11, HAS-212,
+unmatched path answers 404 and an unreachable target 502 with a body (HAS-281 on 2026-10-25 the same with
+`cholewa-commons` 1.12.0). The run of 2026-10-11 (HAS-212,
 with the limits of the connection pool and the retry of a read) also showed a connection reset by
 the target answering 200 for a `GET` and 502 for a `POST`.
 
@@ -77,6 +78,7 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | Path | Target | Endpoints behind it |
 |---|---|---|
 | `/home/ai` | `ai-service` | `POST /home/ai` (text/plain) |
+| `/home/aircon`, `/home/aircon/**` | `aircon-service` | the air conditioners of the house (epic HAS-376): their state and their commands, by path, every method (writes to the house, unauthenticated like every route here); routed since 0.11.0 (HAS-379), before the service itself is deployed - until then a `502` with a body |
 | `/home/amx/**` | `amx-service` | the Eaton commands: `POST /home/amx/eaton/blinds/{point}`, `POST /home/amx/eaton/lights/{point}` and `.../level` - writes to the house, unauthenticated like every route here (`POST /home/amx` is gone since amx-service 2.0.0) |
 | `/home/blinds`, `/home/blinds/**` | `blinds-service` | the roller shutters: the state reads `GET /home/blinds`, `/home/blinds/rooms/{room}`, `/home/blinds/{id}`; the commands `POST /home/blinds/{id}`, `/home/blinds/{id}/position`, `/home/blinds/rooms/{room}` (writes to the house, unauthenticated like every route here); the schedules (CRUD under `/home/blinds/schedules`, `GET .../{id}/today`); and `GET /home/blinds/events/gen1?device=&event=`, the action URLs of the Gen1 rollers - a `GET` with a side effect by design, an idempotent report of a state |
 | `/home/boiler/**` | `boiler-service` | `GET /home/boiler/status` |

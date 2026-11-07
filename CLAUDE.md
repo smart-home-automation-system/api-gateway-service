@@ -81,6 +81,13 @@ When opened as part of the workspace, those rules apply here too.
   (HAS-336); that service has nothing to keep inside. Checked on 2026-10-27 with the jar of energy-service
   on 6014 (no bump, Boot 4.1.2, starter 5.0.4, `cholewa-commons` 1.12.0): `GET /home/energy/status` answers
   through the gateway with `traceparent`, a `POST` reaches the service (its 405), `/home/energyx` is 404.
+- **`aircon` is open by path, every method** (HAS-379, epic HAS-376): `/aircon` and `/aircon/**` - aircon-service,
+  the Gree air conditioners: their state and their commands; that service has nothing to keep inside. Routed
+  before the service exists (a 502 with a body until it is deployed), local port 6015. Re-tested on 2026-11-07
+  with an echo stub on 6015 (Boot 4.1.2, starter 5.0.4, `cholewa-commons` 1.13.0 - bumped in this task): a read
+  with its query, a `POST` with a UTF-8 body and one of 300 KB, a `DELETE` and the bare `/home/aircon` arrive
+  unchanged with `traceparent`, `/home/airconx` is 404, a stopped target a 502 with its body on route `[aircon]`
+  (the read repeated once first).
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external
