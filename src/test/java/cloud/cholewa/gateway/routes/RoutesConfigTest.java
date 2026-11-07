@@ -34,6 +34,7 @@ class RoutesConfigTest {
 
         assertThat(targets).containsExactlyInAnyOrderEntriesOf(Map.ofEntries(
             Map.entry("ai", "http://ai-service:6200"),
+            Map.entry("aircon", "http://aircon-service:6200"),
             Map.entry("amx", "http://amx-service:6200"),
             Map.entry("appliance", "http://appliance-service:6200"),
             Map.entry("blinds", "http://blinds-service:6200"),
@@ -101,6 +102,10 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/energy")).isEqualTo("energy");
         assertThat(matchedRouteFor("/home/energy/status")).isEqualTo("energy");
         assertThat(matchedRouteFor("/home/energyx")).isNull();
+        assertThat(matchedRouteFor("/home/aircon")).isEqualTo("aircon");
+        assertThat(matchedRouteFor("/home/aircon/140")).isEqualTo("aircon");
+        assertThat(matchedRouteFor("/home/aircon/140/power?turn=on")).isEqualTo("aircon");
+        assertThat(matchedRouteFor("/home/airconx")).isNull();
         assertThat(matchedRouteFor("/home/nothing")).isNull();
     }
 
@@ -139,6 +144,14 @@ class RoutesConfigTest {
     @ValueSource(strings = {"POST", "PUT", "DELETE"})
     void should_route_the_writes_of_energy_service(final String method) {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/energy/status")).isEqualTo("energy");
+    }
+
+    //the air conditioners are commanded through the gateway (HAS-379) - by path alone, whatever the method
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE"})
+    void should_route_the_writes_of_aircon_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/aircon/140")).isEqualTo("aircon");
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/aircon/140/mode")).isEqualTo("aircon");
     }
 
     //the registry and the calendar are written through the gateway as well - the route of
