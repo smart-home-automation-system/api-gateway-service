@@ -56,7 +56,7 @@ class UpstreamConnectionFailureTest {
 
     @DynamicPropertySource
     static void upstream(final DynamicPropertyRegistry registry) {
-        for (String service : List.of("ai", "aircon", "amx", "appliance", "blinds", "boiler", "database", "energy", "heating", "light", "presence", "water", "weather")) {
+        for (String service : List.of("ai", "aircon", "amx", "appliance", "blinds", "boiler", "database", "energy", "gate", "heating", "light", "presence", "water", "weather")) {
             registry.add("internal.service." + service + ".host", () -> "localhost");
             registry.add("internal.service." + service + ".port", UPSTREAM::port);
         }
@@ -109,6 +109,7 @@ class UpstreamConnectionFailureTest {
         "/home/amx",
         "/home/appliance/133",
         "/home/energy/status",
+        "/home/gate",
         "/home/blinds/rooms/office",
         "/home/boiler/status",
         "/home/household/profiles",

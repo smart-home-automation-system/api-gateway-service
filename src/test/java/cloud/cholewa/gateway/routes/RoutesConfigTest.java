@@ -41,6 +41,7 @@ class RoutesConfigTest {
             Map.entry("boiler", "http://boiler-service:6200"),
             Map.entry("database", "http://database-service:6200"),
             Map.entry("energy", "http://energy-service:6200"),
+            Map.entry("gate", "http://gate-service:6200"),
             Map.entry("heating", "http://heating-service:6200"),
             Map.entry("light", "http://light-service:6200"),
             Map.entry("presence", "http://presence-service:6200"),
@@ -106,6 +107,9 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/aircon/140")).isEqualTo("aircon");
         assertThat(matchedRouteFor("/home/aircon/140/power?turn=on")).isEqualTo("aircon");
         assertThat(matchedRouteFor("/home/airconx")).isNull();
+        assertThat(matchedRouteFor("/home/gate")).isEqualTo("gate");
+        assertThat(matchedRouteFor("/home/gate/open?source=dashboard&member=Test")).isEqualTo("gate");
+        assertThat(matchedRouteFor("/home/gatex")).isNull();
         assertThat(matchedRouteFor("/home/nothing")).isNull();
     }
 
@@ -152,6 +156,13 @@ class RoutesConfigTest {
     void should_route_the_writes_of_aircon_service(final String method) {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/aircon/140")).isEqualTo("aircon");
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/aircon/140/mode")).isEqualTo("aircon");
+    }
+
+    //the gate is opened through the gateway (HAS-447) - by path alone, whatever the method
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE"})
+    void should_route_the_writes_of_gate_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/gate/open")).isEqualTo("gate");
     }
 
     //the registry and the calendar are written through the gateway as well - the route of

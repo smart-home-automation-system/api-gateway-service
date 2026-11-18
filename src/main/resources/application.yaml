@@ -95,6 +95,10 @@ internal:
       scheme: http
       host: energy-service
       port: 6200
+    gate:
+      scheme: http
+      host: gate-service
+      port: 6200
     heating:
       scheme: http
       host: heating-service
@@ -161,6 +165,9 @@ internal:
     energy:
       host: localhost
       port: 6014
+    gate:
+      host: localhost
+      port: 6016
     heating:
       host: localhost
       port: 6002
