@@ -54,6 +54,9 @@ public class RoutesConfig {
             //the energy of the house (HAS-325): the status of its sources, and what the energy tasks add - the
             //readings, the balance, the commands of the battery; by path, every method, as appliance
             .route("energy", r -> r.path("/energy", "/energy/**").uri(uri(services.energy())))
+            //the driveway gate and the intercom (HAS-447, epic HAS-442): the state of the gate and its opening - by
+            //path, every method, as aircon; no GET of gate-service has a side effect, the opening is a POST
+            .route("gate", r -> r.path("/gate", "/gate/**").uri(uri(services.gate())))
             .route("heating", r -> r.path("/heating", "/heating/**").uri(uri(services.heating())))
             //reads, commands and the action URLs of the Gen1 lights and of a Shelly Motion - a GET with a side
             //effect by design, as for blinds (a Gen1 device can only GET), an idempotent report of a state
