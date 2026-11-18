@@ -88,6 +88,14 @@ When opened as part of the workspace, those rules apply here too.
   with its query, a `POST` with a UTF-8 body and one of 300 KB, a `DELETE` and the bare `/home/aircon` arrive
   unchanged with `traceparent`, `/home/airconx` is 404, a stopped target a 502 with its body on route `[aircon]`
   (the read repeated once first).
+- **`gate` is open by path, every method** (HAS-447, epic HAS-442): `/gate` and `/gate/**` - gate-service, the
+  driveway gate and the intercom: `GET /gate` and the opening `POST /gate/open`; no `GET` of that service has a side
+  effect, so the repetition of a broken read is harmless. **Opening the gate is one unauthenticated call from the
+  LAN** - the accepted state of everything behind the gateway. Local port 6016. Re-tested on 2026-11-18 against the
+  running gate-service through a port-forward on 6016 (Boot 4.1.2, starter 5.0.4, `cholewa-commons` 1.14.0 - bumped
+  in this task): `GET /home/gate` answers from the service, a `POST /home/gate/open` with an unknown member reaches
+  it (its 400 `UNKNOWN_MEMBER`, nothing opened), a `DELETE` gets its 405, `/home/gatex` is 404, the target stopped a
+  502 with its body on route `[gate]`.
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external
