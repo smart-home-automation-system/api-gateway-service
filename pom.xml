@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.2</version>
+		<version>4.2.0</version>
 		<relativePath/>
 		<!-- lookup parent from repository -->
 	</parent>
@@ -27,11 +27,10 @@
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
 
 		<logbook.version>4.2.0</logbook.version>
-		<!-- Spring Cloud ships no release train for Boot 4.1 (2025.1.3, the newest, is built
-		     against Boot 4.0.8), so the BOM is gone and the starter is pinned on its own. The
-		     pairing holds because Boot 4.1.1 and 4.0.8 sit on the same Spring Framework 7.0.x -
-		     verified by hand, but outside Spring's compatibility matrix: re-test on every bump -->
-		<spring-cloud-gateway.version>5.0.4</spring-cloud-gateway.version>
+		<!-- the release train of Spring Cloud built for this Boot (2026.0.0: Boot 4.2.0, the gateway
+		     starter 5.1.0) - the starter takes its version from the BOM below (HAS-459; pinned on its
+		     own while no train targeted Boot 4.1) -->
+		<spring-cloud.version>2026.0.0</spring-cloud.version>
 
 		<!--  internal dependencies versions-->
 		<cholewa-commons.version>1.14.0</cholewa-commons.version>
@@ -43,6 +42,17 @@
 		<versions-maven-plugin.version>2.21.0</versions-maven-plugin.version>
 	</properties>
 
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<!--  internal dependencies versions-->
 		<dependency>
@@ -61,7 +71,6 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
-			<version>${spring-cloud-gateway.version}</version>
 		</dependency>
 
 		<!-- required by logbook's WebFluxNettyClientConfiguration; logbook declares it optional -->

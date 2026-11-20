@@ -25,6 +25,7 @@ public record InternalServicesConfig(
     @NotNull @Valid ServiceUri heating,
     @NotNull @Valid ServiceUri light,
     @NotNull @Valid ServiceUri presence,
+    @NotNull @Valid ServiceUri safety,
     @NotNull @Valid ServiceUri water,
     @NotNull @Valid ServiceUri weather
 ) {
