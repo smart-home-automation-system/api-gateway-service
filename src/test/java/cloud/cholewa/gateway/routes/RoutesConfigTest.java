@@ -45,6 +45,7 @@ class RoutesConfigTest {
             Map.entry("heating", "http://heating-service:6200"),
             Map.entry("light", "http://light-service:6200"),
             Map.entry("presence", "http://presence-service:6200"),
+            Map.entry("safety", "http://safety-service:6200"),
             Map.entry("water", "http://water-service:6200"),
             Map.entry("weather", "http://weather-service:6200")
         ));
@@ -110,6 +111,10 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/gate")).isEqualTo("gate");
         assertThat(matchedRouteFor("/home/gate/open?source=dashboard&member=Test")).isEqualTo("gate");
         assertThat(matchedRouteFor("/home/gatex")).isNull();
+        assertThat(matchedRouteFor("/home/safety")).isEqualTo("safety");
+        assertThat(matchedRouteFor("/home/safety/alarms?from=2026-11-20T00:00:00&to=2026-11-21T00:00:00")).isEqualTo("safety");
+        assertThat(matchedRouteFor("/home/safety/rooms/kitchen")).isEqualTo("safety");
+        assertThat(matchedRouteFor("/home/safetyx")).isNull();
         assertThat(matchedRouteFor("/home/nothing")).isNull();
     }
 
@@ -163,6 +168,13 @@ class RoutesConfigTest {
     @ValueSource(strings = {"POST", "PUT", "DELETE"})
     void should_route_the_writes_of_gate_service(final String method) {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/gate/open")).isEqualTo("gate");
+    }
+
+    //the commands of the fire detectors the dashboard will send (HAS-459) - by path alone, whatever the method
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE"})
+    void should_route_the_writes_of_safety_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/safety/151/mute")).isEqualTo("safety");
     }
 
     //the registry and the calendar are written through the gateway as well - the route of

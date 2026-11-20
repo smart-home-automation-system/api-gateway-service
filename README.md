@@ -13,7 +13,7 @@ Gateway to other home-automation services.
 
 ![GitHub top language](https://img.shields.io/github/languages/top/smart-home-automation-system/api-gateway-service?style=plastic)
 ![Java](https://img.shields.io/badge/java-21-yellow?style=plastic)
-![SpringBoot](https://img.shields.io/badge/SpringBoot-4.1.2-blue?style=plastic)
+![SpringBoot](https://img.shields.io/badge/SpringBoot-4.2.0-blue?style=plastic)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=smart-home-automation-system_api-gateway-service&metric=coverage)](https://sonarcloud.io/summary/new_code?id=smart-home-automation-system_api-gateway-service)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=smart-home-automation-system_api-gateway-service&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=smart-home-automation-system_api-gateway-service)
 
@@ -36,21 +36,19 @@ Routing is **static** — service discovery was retired together with `service-d
 and k8s DNS resolves the targets. Each route's host and port come from the `internal.service.*`
 configuration group.
 
-## Spring Cloud on Boot 4.1 — accepted risk
+## Spring Cloud — the release train
 
-No Spring Cloud release train targets Spring Boot 4.1 (the starter 5.0.4, the newest, is built
-against Boot 4.0.9), so the BOM is not imported and `spring-cloud-starter-gateway-server-webflux` is
-pinned on its own (`spring-cloud-gateway.version`, **5.0.4**). The combination works because
-Boot 4.1.2 and 4.0.9 sit on the same Spring Framework 7.0.x line, and it is verified on every
-change — but it is outside Spring's compatibility matrix, so **re-test the gateway after any
-bump** of either version. Last re-tested on 2026-11-18 with Boot 4.1.2, the starter 5.0.4 and
-`cholewa-commons` 1.14.0 (HAS-447): the context starts, the `gate` route proxies a read of the running
-gate-service, a `POST` reaches it (refused for an unknown member, nothing opened) and a `DELETE` gets its 405, an
-unmatched path answers 404 and an unreachable target 502 with a body (HAS-379 on 2026-11-07 the same for `aircon`
-with `cholewa-commons` 1.13.0, a `POST` of 300 KB included; HAS-281 on 2026-10-25 the same with
-`cholewa-commons` 1.12.0). The run of 2026-10-11 (HAS-212,
-with the limits of the connection pool and the retry of a read) also showed a connection reset by
-the target answering 200 for a `GET` and 502 for a `POST`.
+The gateway starter comes from the release train of Spring Cloud built for this Boot: **2026.0.0** (Boot 4.2.0,
+`spring-cloud-starter-gateway-server-webflux` 5.1.0), imported as a BOM since HAS-459. Until then no train targeted
+Boot 4.1 and the starter was pinned by hand (5.0.4, outside Spring's compatibility matrix - the accepted risk of
+HAS-152). **Re-test the gateway after any bump** of Boot or the train anyway: the context starts, a route proxies, an
+unmatched path 404s. Last re-tested on 2026-11-20 with Boot 4.2.0, the train 2026.0.0 and `cholewa-commons` 1.14.0
+(HAS-459): the `safety` route proxies the reads of a running safety-service (`/home/safety`, `/home/safety/151`,
+`/home/safety/alarms` with its query), a `POST` it has no handler for gets its 405, `/home/safetyx` is 404; through the
+`gate` route an echo stub received a `POST` with a UTF-8 body and one of 300 KB, and a `DELETE`, unchanged with
+`traceparent`; the target stopped answered 502 with a body. The run of 2026-10-11 (HAS-212, with the limits of the
+connection pool and the retry of a read) also showed a connection reset by the target answering 200 for a `GET` and
+502 for a `POST`.
 
 ## Run locally
 
@@ -90,6 +88,7 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating` (the `POST` switches the heating of the house), `GET /home/heating/status/active`, `GET /home/heating/temperature/sensors`, `GET /home/heating/rooms`, `GET /home/heating/rooms/{name}`, `GET /home/heating/rooms/{name}/temperature/history`, `GET /home/heating/floor-pump` |
 | `/home/light`, `/home/light/**` | `light-service` | the lights: the state reads `GET /home/light`, `/home/light/rooms/{room}`, `/home/light/{id}`, the occupancy `GET /home/light/rooms/{room}/occupancy`; the commands `POST /home/light/{id}`, `/{id}/brightness`, `/{id}/color`, `/home/light/rooms/{room}` (writes to the house, unauthenticated like every route here); and `GET /home/light/events/gen1?device=&event=`, the action URLs of the Gen1 lights and of a Shelly Motion - a `GET` with a side effect by design, an idempotent report of a state |
 | `/home/energy`, `/home/energy/**` | `energy-service` | the energy of the house: `GET /home/energy/status` - the sources of energy and whether each answers; the readings and the commands of the battery come with the energy tasks (writes, unauthenticated like every route here) |
+| `/home/safety`, `/home/safety/**` | `safety-service` | the fire detectors (epic HAS-455): `GET /home/safety` - every detector and base station, `/rooms/{room}`, `/{id}`, `/alarms?from=&to=` - the fire alarm episodes; what the dashboard will send later (mute, self test) by any method; routed since 0.13.0 (HAS-459) |
 | `/home/gate`, `/home/gate/**` | `gate-service` | the driveway gate and the intercom (epic HAS-442): `GET /home/gate` - the gate, the bridge of the door station, the last ring and the last opening; `POST /home/gate/open?source=dashboard&member=` **opens the gate** - one unauthenticated call from the LAN, like every write here (access is LAN / VPN only); routed since 0.12.0 (HAS-447) |
 | `/home/appliance`, `/home/appliance/**` | `appliance-service` | the appliances: `GET /home/appliance`, `/home/appliance/{id}`, its cycles `/{id}/runs?from=&to=` and samples `/{id}/samples?from=&to=`; `POST /home/appliance/{id}/acknowledge` - the acknowledgement of a finished cycle (a write, unauthenticated like every route here) |
 | `GET /home/presence/residents/presence`, `GET /home/presence/residents/{name}/report`, `GET /home/presence/residents/{name}/report/daily`, `GET /home/presence/house/report` | `presence-service` | who is at home now and, each for a range (`?from=&to=`, both required): when one resident was at home, their daily statistics, and when the house as a whole was occupied or empty — unauthenticated like every route here, and it tells when each household member is at home and when nobody is |

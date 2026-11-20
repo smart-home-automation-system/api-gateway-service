@@ -3,7 +3,7 @@
 `cloud.cholewa:api-gateway-service` — Spring Cloud Gateway at the edge of the cluster: the k8s
 ingress forwards all of `/home` here, and static routes fan out to the internal services over
 k8s DNS. It is the **only** way into the cluster from outside, and where every external request's
-trace starts. Reactive (WebFlux), Java 21, Spring Boot 4.1.2, Maven. Port **6200** (Actuator
+trace starts. Reactive (WebFlux), Java 21, Spring Boot 4.2.0, Maven. Port **6200** (Actuator
 **8200**) locally and in the cluster alike. Docker image `magikabdul/api-gateway-service`; the pom
 keeps `0.0.1-SNAPSHOT`, the released version comes from the git tag.
 
@@ -96,6 +96,14 @@ When opened as part of the workspace, those rules apply here too.
   in this task): `GET /home/gate` answers from the service, a `POST /home/gate/open` with an unknown member reaches
   it (its 400 `UNKNOWN_MEMBER`, nothing opened), a `DELETE` gets its 405, `/home/gatex` is 404, the target stopped a
   502 with its body on route `[gate]`.
+- **`safety` is open by path, every method** (HAS-459, epic HAS-455): `/safety` and `/safety/**` - safety-service, the
+  fire detectors: the reads of their state, of a room, of one detector and of the alarm episodes; the commands the
+  dashboard will send (mute, self test) by any method. No `GET` of that service has a side effect. Local port 6017.
+  Re-tested on 2026-11-20 against a running safety-service on 6017 (Boot 4.2.0 and the starter 5.1.0 - bumped in this
+  task): `GET /home/safety`, `/home/safety/151` and `/home/safety/alarms?from=&to=` answer from the service, a `POST`
+  gets its 405, `/home/safetyx` is 404; through `gate` an echo stub received a UTF-8 body (26 bytes, unchanged), one of
+  300 KB and a `DELETE` with `traceparent`, the target stopped a 502 with its body. The same reads, the 405, the 404 and
+  the 502 again on the jar built with the BOM of the train 2026.0.0 (the same artifacts, 5.1.0).
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external
@@ -105,14 +113,14 @@ When opened as part of the workspace, those rules apply here too.
   ingress forwards (prefix included) plus a near-miss that must not match — extend it with every
   route change.
 
-## Spring Cloud on Boot 4.1 — accepted risk
+## Spring Cloud — the release train
 
-No Spring Cloud release train targets Boot 4.1, so the BOM is not imported and
-`spring-cloud-starter-gateway-server-webflux` is pinned on its own (**5.0.4**, built against Boot 4.0.9 -
-Maven Central, 2026-10-25). It works because Boot 4.1.2 and 4.0.9 share Spring
-Framework 7.0.x, but it sits outside Spring's compatibility matrix —
-**re-test the gateway (context up, a route proxies, an unmatched path 404s) after any bump** of
-Boot or the gateway starter, and drop the pin the day a Boot 4.1 train ships.
+The starter comes from the BOM of the Spring Cloud release train built for this Boot - **2026.0.0** (Boot 4.2.0,
+`spring-cloud-starter-gateway-server-webflux` 5.1.0, Maven Central 2026-11-20), imported since HAS-459. Until then no
+train targeted Boot 4.1 and the starter was pinned by hand (5.0.4, built against Boot 4.0.9 - the accepted risk of
+HAS-152, gone). **Re-test the gateway (context up, a route proxies, an unmatched path 404s) after any bump** of Boot
+or the train - the gateway proxies through its own `HttpClient`, which no unit test fully exercises; the train moves
+with Boot, so a Boot bump that the train does not cover yet waits for it.
 
 The quickest way to re-test without a cluster: start the jar with `home,local`, put any HTTP stub on a target's local port and call the route
 through `localhost:6200` — done that way on 2026-10-04 for Boot 4.1.1 / starter 5.0.3 (HAS-152),
@@ -137,7 +145,7 @@ arrives with its path, query and body unchanged.
 - The limits are `httpclient.pool.*` in `application.yaml`: `max-idle-time` 2 min, `max-life-time`
   30 min, `eviction-interval` 30 s. **Each defaults to "no limit" when left out**, without a word,
   so `ApiGatewayServiceApplicationTest` pins the three values and `IdleConnectionEvictionTest`
-  proves they reach the HTTP client of the hand-pinned starter. Raising the idle time is harmless
+  proves they reach the HTTP client of the gateway starter. Raising the idle time is harmless
   up to hours; it must never get near 24 h.
 - **A `GET` whose connection broke at once is repeated once** — `FailedReadRepeatFilter`, a
   **global** filter, so a new route has it without anything in `RoutesConfig`

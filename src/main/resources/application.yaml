@@ -111,6 +111,10 @@ internal:
       scheme: http
       host: presence-service
       port: 6200
+    safety:
+      scheme: http
+      host: safety-service
+      port: 6200
     water:
       scheme: http
       host: water-service
@@ -177,6 +181,9 @@ internal:
     presence:
       host: localhost
       port: 6009
+    safety:
+      host: localhost
+      port: 6017
     water:
       host: localhost
       port: 6006

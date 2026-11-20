@@ -74,6 +74,9 @@ public class RoutesConfig {
                     "/presence/house/report")
                 .and().method(HttpMethod.GET)
                 .uri(uri(services.presence())))
+            //the fire detectors (HAS-459, epic HAS-455): their state, the alarms and what the dashboard will send - by
+            //path, every method, as gate; no GET of safety-service has a side effect
+            .route("safety", r -> r.path("/safety", "/safety/**").uri(uri(services.safety())))
             .route("water", r -> r.path("/water", "/water/**").uri(uri(services.water())))
             //an allowlist of reads, like presence (HAS-239): weather-service serves reads only, and
             //whatever it adds later is published by a decision here, not by a /** tail - which would
