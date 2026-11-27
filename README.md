@@ -42,8 +42,10 @@ The gateway starter comes from the release train of Spring Cloud built for this 
 `spring-cloud-starter-gateway-server-webflux` 5.1.0), imported as a BOM since HAS-459. Until then no train targeted
 Boot 4.1 and the starter was pinned by hand (5.0.4, outside Spring's compatibility matrix - the accepted risk of
 HAS-152). **Re-test the gateway after any bump** of Boot or the train anyway: the context starts, a route proxies, an
-unmatched path 404s. Last re-tested on 2026-11-20 with Boot 4.2.0, the train 2026.0.0 and `cholewa-commons` 1.14.0
-(HAS-459): the `safety` route proxies the reads of a running safety-service (`/home/safety`, `/home/safety/151`,
+unmatched path 404s. Last re-tested on 2026-11-27 with Boot 4.2.0, the train 2026.0.0 and `cholewa-commons` 2.0.0
+(HAS-516): the `media` route takes the unlock of the amplifier, a `POST` with a UTF-8 body and a `DELETE` to an echo stub
+unchanged with `traceparent`, `/home/mediax` is 404, a `POST` whose connection broke is sent once and answered 502. On
+2026-11-20 (HAS-459): the `safety` route proxies the reads of a running safety-service (`/home/safety`, `/home/safety/151`,
 `/home/safety/alarms` with its query), a `POST` it has no handler for gets its 405, `/home/safetyx` is 404; through the
 `gate` route an echo stub received a `POST` with a UTF-8 body and one of 300 KB, and a `DELETE`, unchanged with
 `traceparent`; the target stopped answered 502 with a body. The run of 2026-10-11 (HAS-212, with the limits of the
@@ -88,6 +90,7 @@ path externally as internally, so no rewrite is needed. A target whose path diff
 | `/home/heating/**` | `heating-service` | `GET` and `POST` on `/home/heating` (the `POST` switches the heating of the house), `GET /home/heating/status/active`, `GET /home/heating/temperature/sensors`, `GET /home/heating/rooms`, `GET /home/heating/rooms/{name}`, `GET /home/heating/rooms/{name}/temperature/history`, `GET /home/heating/floor-pump` |
 | `/home/light`, `/home/light/**` | `light-service` | the lights: the state reads `GET /home/light`, `/home/light/rooms/{room}`, `/home/light/{id}`, the occupancy `GET /home/light/rooms/{room}/occupancy`; the commands `POST /home/light/{id}`, `/{id}/brightness`, `/{id}/color`, `/home/light/rooms/{room}` (writes to the house, unauthenticated like every route here); and `GET /home/light/events/gen1?device=&event=`, the action URLs of the Gen1 lights and of a Shelly Motion - a `GET` with a side effect by design, an idempotent report of a state |
 | `/home/energy`, `/home/energy/**` | `energy-service` | the energy of the house: `GET /home/energy/status` - the sources of energy and whether each answers; the readings and the commands of the battery come with the energy tasks (writes, unauthenticated like every route here) |
+| `/home/media`, `/home/media/**` | `media-service` | the audio and video equipment (epic HAS-508): `POST /home/media/amplifier/unlock?source=dashboard&member=` sends the amplifier the file that unhangs it after a loss of the grid (a write to the house, unauthenticated like every route here); routed since 0.14.0 (HAS-516) |
 | `/home/safety`, `/home/safety/**` | `safety-service` | the fire detectors (epic HAS-455): `GET /home/safety` - every detector and base station, `/rooms/{room}`, `/{id}`, `/alarms?from=&to=` - the fire alarm episodes; what the dashboard will send later (mute, self test) by any method; routed since 0.13.0 (HAS-459) |
 | `/home/gate`, `/home/gate/**` | `gate-service` | the driveway gate and the intercom (epic HAS-442): `GET /home/gate` - the gate, the bridge of the door station, the last ring and the last opening; `POST /home/gate/open?source=dashboard&member=` **opens the gate** - one unauthenticated call from the LAN, like every write here (access is LAN / VPN only); routed since 0.12.0 (HAS-447) |
 | `/home/appliance`, `/home/appliance/**` | `appliance-service` | the appliances: `GET /home/appliance`, `/home/appliance/{id}`, its cycles `/{id}/runs?from=&to=` and samples `/{id}/samples?from=&to=`; `POST /home/appliance/{id}/acknowledge` - the acknowledgement of a finished cycle (a write, unauthenticated like every route here) |
