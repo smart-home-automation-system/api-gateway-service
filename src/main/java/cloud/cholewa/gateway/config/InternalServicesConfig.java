@@ -24,6 +24,7 @@ public record InternalServicesConfig(
     @NotNull @Valid ServiceUri gate,
     @NotNull @Valid ServiceUri heating,
     @NotNull @Valid ServiceUri light,
+    @NotNull @Valid ServiceUri media,
     @NotNull @Valid ServiceUri presence,
     @NotNull @Valid ServiceUri safety,
     @NotNull @Valid ServiceUri water,
