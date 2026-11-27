@@ -33,13 +33,10 @@
 		<spring-cloud.version>2026.0.0</spring-cloud.version>
 
 		<!--  internal dependencies versions-->
-		<cholewa-commons.version>1.14.0</cholewa-commons.version>
+		<cholewa-commons.version>2.0.0</cholewa-commons.version>
 
 		<!--  plugins versions-->
-		<maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
-		<maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
-		<tidy-maven-plugin.version>1.4.0</tidy-maven-plugin.version>
-		<versions-maven-plugin.version>2.21.0</versions-maven-plugin.version>
+		<tidy-maven-plugin.version>1.5.0</tidy-maven-plugin.version>
 	</properties>
 
 	<dependencyManagement>
@@ -164,7 +161,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>${maven-surefire-plugin.version}</version>
 				<configuration>
 					<argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar} -Xshare:off</argLine>
 					<!-- the test document of application.yaml switches the console logs back to plain
@@ -182,7 +178,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-enforcer-plugin</artifactId>
-				<version>${maven-enforcer-plugin.version}</version>
 				<executions>
 					<execution>
 						<configuration>
@@ -215,7 +210,6 @@
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>versions-maven-plugin</artifactId>
-				<version>${versions-maven-plugin.version}</version>
 				<configuration>
 					<ignoredVersions>(?i).*(beta|milestone|rc|alpha|snapshot|preview|m\d+|b\d+).*</ignoredVersions>
 				</configuration>

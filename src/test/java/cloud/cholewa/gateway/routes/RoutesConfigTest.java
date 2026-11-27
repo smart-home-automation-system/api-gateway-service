@@ -44,6 +44,7 @@ class RoutesConfigTest {
             Map.entry("gate", "http://gate-service:6200"),
             Map.entry("heating", "http://heating-service:6200"),
             Map.entry("light", "http://light-service:6200"),
+            Map.entry("media", "http://media-service:6200"),
             Map.entry("presence", "http://presence-service:6200"),
             Map.entry("safety", "http://safety-service:6200"),
             Map.entry("water", "http://water-service:6200"),
@@ -115,6 +116,9 @@ class RoutesConfigTest {
         assertThat(matchedRouteFor("/home/safety/alarms?from=2026-11-20T00:00:00&to=2026-11-21T00:00:00")).isEqualTo("safety");
         assertThat(matchedRouteFor("/home/safety/rooms/kitchen")).isEqualTo("safety");
         assertThat(matchedRouteFor("/home/safetyx")).isNull();
+        assertThat(matchedRouteFor("/home/media")).isEqualTo("media");
+        assertThat(matchedRouteFor("/home/media/amplifier/unlock?source=dashboard&member=Test")).isEqualTo("media");
+        assertThat(matchedRouteFor("/home/mediax")).isNull();
         assertThat(matchedRouteFor("/home/nothing")).isNull();
     }
 
@@ -175,6 +179,13 @@ class RoutesConfigTest {
     @ValueSource(strings = {"POST", "PUT", "DELETE"})
     void should_route_the_writes_of_safety_service(final String method) {
         assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/safety/151/mute")).isEqualTo("safety");
+    }
+
+    //the unlock of the amplifier (HAS-516) - by path alone, whatever the method
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT", "DELETE"})
+    void should_route_the_writes_of_media_service(final String method) {
+        assertThat(matchedRouteFor(HttpMethod.valueOf(method), "/home/media/amplifier/unlock")).isEqualTo("media");
     }
 
     //the registry and the calendar are written through the gateway as well - the route of

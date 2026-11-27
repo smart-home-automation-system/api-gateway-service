@@ -104,6 +104,14 @@ When opened as part of the workspace, those rules apply here too.
   gets its 405, `/home/safetyx` is 404; through `gate` an echo stub received a UTF-8 body (26 bytes, unchanged), one of
   300 KB and a `DELETE` with `traceparent`, the target stopped a 502 with its body. The same reads, the 405, the 404 and
   the 502 again on the jar built with the BOM of the train 2026.0.0 (the same artifacts, 5.1.0).
+- **`media` is open by path, every method** (HAS-516, epic HAS-508): `/media` and `/media/**` - media-service, the
+  audio and video equipment: today `POST /media/amplifier/unlock?source=dashboard&member=`, which sends the amplifier
+  the file that unhangs it - a write to the house, unauthenticated like every one here. No `GET` of that service has a
+  side effect. Local port 6018. Re-tested on 2026-11-27 with the jar (`home,local`, Boot 4.2.0, the starter 5.1.0,
+  `cholewa-commons` 2.0.0 - bumped in this task) and an echo stub (on 6918 through `--internal.service.media.port`, as
+  the local media-service of the owner held 6018): the unlock with its query, a `POST` with a UTF-8 body, the bare
+  `/home/media` and a `DELETE` arrive unchanged with `traceparent`, `/home/mediax` is 404, a `POST` whose connection
+  the stub closed arrived once and answered 502 with its body.
 - `ai` overrides the global `response-timeout` (30 s) with 120 s via route metadata — an OpenAI
   answer is slow; do not drag the global timeout up for everyone.
 - `notification-service` is deliberately **not** routed: its Discord endpoint has no external

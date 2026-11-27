@@ -77,6 +77,9 @@ public class RoutesConfig {
             //the fire detectors (HAS-459, epic HAS-455): their state, the alarms and what the dashboard will send - by
             //path, every method, as gate; no GET of safety-service has a side effect
             .route("safety", r -> r.path("/safety", "/safety/**").uri(uri(services.safety())))
+            //the amplifier (HAS-516, epic HAS-508): POST /media/amplifier/unlock, a write to the house - by path, every
+            //method, as safety; no GET of media-service has a side effect
+            .route("media", r -> r.path("/media", "/media/**").uri(uri(services.media())))
             .route("water", r -> r.path("/water", "/water/**").uri(uri(services.water())))
             //an allowlist of reads, like presence (HAS-239): weather-service serves reads only, and
             //whatever it adds later is published by a decision here, not by a /** tail - which would
